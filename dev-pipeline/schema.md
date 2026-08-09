@@ -13,7 +13,12 @@ docs/
   ROADMAP.md                 # coarse completed vs remaining
   dev-pipeline/
     PHASES.md                # phase index + active pointer
+    ADOPTION.md              # mid-flight adopt/refresh snapshot (optional until adopt)
     phases/
+      PH-00-intake/          # optional intake after adopt/init
+        README.md
+        TASK-QUEUE.md
+        CONTEXT.md
       PH-01-<slug>/
         README.md            # goals, status, switch notes, contract freeze
         TASK-QUEUE.md        # ordered tasks for this phase
@@ -26,6 +31,15 @@ agent-prompts/               # gitignored handoff prompts (required)
 ```
 
 If the repo already uses `docs/epics/`, `docs/backend/epics/`, or `docs/epics-*/`, **keep those paths**. Put only phase/queue overlays under `docs/dev-pipeline/`.
+
+### Greenfield vs mid-flight
+
+| Command | Use when |
+|---------|----------|
+| `init` | Little/no product docs; bootstrap empty layout |
+| `adopt` | Project already developing; docs tree exists — read it, map state, overlay pipeline |
+
+`adopt` details: [adopt.md](adopt.md). Do not duplicate existing doc bodies; link and cite paths with Observed / Inferred / Unknown.
 
 ## ID scheme (stable, token-cheap)
 
@@ -109,7 +123,14 @@ Compact tables only:
 
 ## Invariants (do not break across phases)
 - …
+
+## Changed by
+| Task / event | Note |
+|--------------|------|
+| adopt | Initial seed from docs root `…` (if applicable) |
 ```
+
+After `adopt`, seed tables from `ADOPTION.md` authoritative paths (paths + short notes only).
 
 ## `TASK-QUEUE.md` template
 
@@ -152,6 +173,21 @@ Update the Prompt column to `agent-prompts/TASK-….md` when emitted.
 - Surfaces in scope (e.g. frontend only / frontend+backend)
 - Non-goals
 - Link to architecture + active phase
+
+When created by `adopt`, prefer linking Observed identity sources over rewriting them. Point to `docs/dev-pipeline/ADOPTION.md`.
+
+## `ADOPTION.md` (mid-flight)
+
+Written by `adopt` / `adopt --refresh`. Holds:
+
+- Docs root + discovery rule
+- Source map (category → path → evidence)
+- Built vs open table
+- Authoritative contract/entity/decision paths
+- Unknowns / blockers
+- Next suggested commands
+
+Full template: [adopt.md](adopt.md).
 
 ## Gitignore
 

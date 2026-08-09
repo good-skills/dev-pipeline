@@ -2,13 +2,14 @@
 name: dev-pipeline
 description: >-
   Runs a phase-based product development tracking pipeline for AI-agent
-  workflows: pre-prod docs, epics/features/tasks with stable IDs, phase
-  switching without breaking changes, and self-contained task prompt handoffs.
-  Use when the user starts with /dev-pipeline, asks to init a product backlog
-  pipeline, create/switch phases, emit the next agent task prompt, or track
-  epic/feature status across multi-agent development.
+  workflows: pre-prod docs, adopt mid-flight projects from existing docs,
+  epics/features/tasks with stable IDs, phase switching without breaking
+  changes, and self-contained task prompt handoffs. Use when the user starts
+  with /dev-pipeline, asks to init or adopt a product backlog pipeline, create
+  or switch phases, emit the next agent task prompt, or track epic/feature
+  status across multi-agent development.
 disable-model-invocation: true
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Dev Pipeline
@@ -27,12 +28,14 @@ When the user message begins with `/dev-pipeline`, this skill is attached, or th
 4. **Prompts are handoffs** — write under `agent-prompts/` (gitignored); do not commit prompt bodies unless the user explicitly requires it.
 5. **Minimal tokens** — prefer tables, IDs, and short evidence pointers over prose dumps.
 6. **Reuse existing docs** — if the repo already has `docs/epics/`, `ROADMAP.md`, etc., **extend** them; do not duplicate parallel trees without cause.
+7. **Adopt mid-flight** — for repos already in development with a docs tree, `adopt` reads that tree, records current state with evidence tags, and overlays the pipeline without clobbering existing docs.
 
 ## Activation
 
 | Form | Behavior |
 |------|----------|
-| `/dev-pipeline init [name]` | Bootstrap layout + product identity docs |
+| `/dev-pipeline init [name]` | Bootstrap layout + product identity docs (greenfield) |
+| `/dev-pipeline adopt` | Attach pipeline to an **existing** documented project (see [adopt.md](adopt.md)) |
 | `/dev-pipeline backlog` / `/dev-pipeline plan` | Inspect product → create/update backlog (epics/features) |
 | `/dev-pipeline phase new <slug>` | Create a phase; optionally set active |
 | `/dev-pipeline phase switch <PH-ID>` | Activate another phase without breaking prior work |
@@ -40,14 +43,16 @@ When the user message begins with `/dev-pipeline`, this skill is attached, or th
 | `/dev-pipeline next` / `/dev-pipeline task` | Emit next ready task prompt under `agent-prompts/` |
 | `/dev-pipeline task <FEATURE-ID>` | Emit prompt for a specific feature/task |
 | `/dev-pipeline status` | Compact pipeline overview (phases, blockers, priorities) |
-| Natural language: “dev pipeline”, «پایپلاین توسعه», «رهگیری فاز» | Same as matching subcommand intent |
+| Natural language: “dev pipeline”, «پایپلاین توسعه», «رهگیری فاز», «adopt از روی docs», «اتصال به پروژه موجود» | Same as matching subcommand intent |
 
 Flags may appear anywhere after `/dev-pipeline`:
 
 | Flag | Meaning |
 |------|---------|
-| `--set-active` | With `phase new`, mark the new phase active |
+| `--set-active` | With `phase new` or `adopt`, mark the new/intake phase active |
 | `--suite <dir>` | Epic suite folder under `docs/` (default: discover) |
+| `--docs <dir>` | Docs root for `adopt` (default: discover `docs/`, `documentation/`, …) |
+| `--refresh` | With `adopt`: rebuild adoption snapshot + CONTEXT links only |
 | `--dry-run` | Report planned file writes; do not write |
 
 Do not treat ambient coding as this skill unless `/dev-pipeline` or an explicit pipeline ask is present.
@@ -57,16 +62,19 @@ Do not treat ambient coding as this skill unless `/dev-pipeline` or an explicit 
 - Folder layout, IDs, statuses, templates: [schema.md](schema.md)
 - Phase rules & switching: [phases.md](phases.md)
 - Task prompt format: [prompt-template.md](prompt-template.md)
+- Mid-flight attach from existing docs: [adopt.md](adopt.md)
 
 ## Discover project conventions (do not invent)
 
 Look for, in order:
 
 1. `docs/dev-pipeline/PHASES.md` — canonical phase index (this skill)
-2. Existing `docs/ROADMAP.md`, `docs/ARCHITECTURE.md`, `docs/epics/**`, suite folders like `docs/epics-*/`
-3. `docs/**/TASK-QUEUE.md` or `**/BOLT-TASK-QUEUE.md`
-4. `agent-prompts/` or legacy `bolt-prompts/`
-5. Entity/API docs (`docs/**/Entities/`, `*api-contract*`, `*dto*`)
+2. `docs/dev-pipeline/ADOPTION.md` — last adopt/refresh snapshot (if present)
+3. Existing `docs/ROADMAP.md`, `docs/ARCHITECTURE.md`, `docs/epics/**`, suite folders like `docs/epics-*/`
+4. `docs/**/TASK-QUEUE.md` or `**/BOLT-TASK-QUEUE.md`
+5. `agent-prompts/` or legacy `bolt-prompts/`
+6. Entity/API docs (`docs/**/Entities/`, `*api-contract*`, `*dto*`)
+7. Alternate docs roots when adopting: `documentation/`, `Documentation/`, `doc/` (see [adopt.md](adopt.md))
 
 If both legacy and `docs/dev-pipeline/` exist, treat **legacy epic IDs as authoritative**; store phase/queue overlays under `docs/dev-pipeline/` and link out.
 
@@ -102,6 +110,20 @@ Extract subcommand, IDs, flags, and short request remainder.
 5. Ensure `.gitignore` contains `agent-prompts/` (and keep `bolt-prompts/` if already ignored).
 6. Stop with paths created + next suggested command (`backlog` or `phase new`).
 
+Use `init` for greenfield. If the repo already has a substantial docs tree, prefer **`adopt`**.
+
+#### `adopt` / `import` / `from-docs`
+
+Attach the pipeline to a mid-flight project by reading its docs folder and recording current state.
+
+1. Follow [adopt.md](adopt.md) fully (discover docs root → inventory → evidence-tagged synthesis → additive writes).
+2. Write `docs/dev-pipeline/ADOPTION.md` (source map, built vs open, authoritative paths, unknowns).
+3. Create-if-missing only: `PRODUCT.md` / `ARCHITECTURE.md` / `ROADMAP.md` stubs or links; `PHASES.md` + `PH-00-intake` with seeded `CONTEXT.md`.
+4. Do **not** invent stack/APIs/features; do **not** emit task prompts; do **not** overwrite contentful existing docs.
+5. Stop with adoption report + next suggested command (`backlog`, `phase new`, or `status`).
+
+Aliases: `import`, `from-docs`. Natural language: «از روی مستندات وصل کن», «adopt».
+
 #### `backlog` / `plan`
 
 1. Inspect product + code/docs evidence.
@@ -135,11 +157,12 @@ Default: documentation + prompt handoff only. Implementation belongs to the othe
 When reading pipeline docs, load **only** what the current task needs, in this order:
 
 1. `docs/PRODUCT.md` (identity — short)
-2. `docs/dev-pipeline/PHASES.md` → active phase README
-3. Active `TASK-QUEUE.md` row for the task
-4. Parent epic file section for the feature
-5. Linked contract/entity paths cited by that feature
-6. Skip unrelated suites
+2. `docs/dev-pipeline/ADOPTION.md` if present (source map — especially after mid-flight adopt)
+3. `docs/dev-pipeline/PHASES.md` → active phase README
+4. Active `TASK-QUEUE.md` row for the task
+5. Parent epic file section for the feature
+6. Linked contract/entity paths cited by that feature
+7. Skip unrelated suites
 
 ## Out of scope for this skill
 
@@ -148,3 +171,4 @@ When reading pipeline docs, load **only** what the current task needs, in this o
 - Rewriting legacy epic IDs
 - Opening PRs / force-push / destructive git
 - Replacing Promptize for one-off engineering specs (use `/promptize` for that)
+- Using `adopt` to invent a full backlog without doc evidence (use `backlog` after adoption with user confirmation)

@@ -26,6 +26,16 @@ intake → active → parked ⇄ active → done
 
 **Invariant:** at most one `active` phase in `PHASES.md`. Parking the previous active phase is mandatory before activating another.
 
+## Intake after `adopt`
+
+When attaching to a mid-flight repo (`/dev-pipeline adopt`), create or reuse `PH-00-intake` (status `intake` or `active` if `--set-active`):
+
+1. Seed `CONTEXT.md` from the docs-root source map in `ADOPTION.md` (paths only).
+2. Keep `TASK-QUEUE.md` empty or minimal until `/dev-pipeline backlog` confirms features.
+3. Do not emit implementer prompts from intake until the user creates/activates a real phase or explicitly runs `next` on a ready queue.
+
+Prefer `adopt` over `phase new` when the only goal is “understand current docs and attach the tracker.”
+
 ## Creating a phase (`phase new`)
 
 1. Allocate next `PH-{NN}` (never reuse).
