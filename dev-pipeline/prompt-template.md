@@ -22,6 +22,7 @@ Write **self-contained** prompts. No “as discussed above”.
 **Feature ID:** `{FEATURE-ID}`
 **Epic ID:** `{EPIC-ID}`
 **Phase:** `{PH-ID}` ({phase slug})
+**Surface(s):** `{SUR-ID}` ({slug}) — from `docs/dev-pipeline/SHARED.md`
 **Priority:** `P0`|`P1`|`P2`|`P3`
 **depends_on:** {ids or —}
 **blocks:** {ids or —}
@@ -29,6 +30,12 @@ Write **self-contained** prompts. No “as discussed above”.
 
 ## Product identity (do not violate)
 {1–3 lines from docs/PRODUCT.md}
+
+## Shared source of truth (do not fork)
+- Index: `docs/dev-pipeline/SHARED.md`
+- Follow contracts: `{paths from SHARED + phase freeze}`
+- Consumers that must stay compatible: `{surfaces / modules}`
+- Do **not** invent parallel API/DTO/entity docs for this surface
 
 ## Goal
 {one paragraph}
@@ -45,9 +52,11 @@ Write **self-contained** prompts. No “as discussed above”.
 - …
 
 ## Contracts & integrity
-- Follow: `{api/dto/entity paths}`
-- Preserve: {invariants from phase CONTEXT.md}
-- Do not break: {consumers / modules}
+- Follow: `{api/dto/entity paths}` (must be SHARED-listed or explicit additive extension task)
+- Business rules: `{docs/business-rules/… or CLAIMS links}`
+- Preserve: {invariants from phase CONTEXT.md + SHARED}
+- Do not break: {consumers / modules / other surfaces}
+- Respect absorbed claims: `briefs/CLAIMS.md` (do not contradict without an explicit task)
 
 ## Acceptance criteria
 1. {observable}

@@ -87,6 +87,7 @@ Prefer tables and path pointers over prose.
 1. Ensure `docs/dev-pipeline/` exists.
 2. Write or update `docs/dev-pipeline/ADOPTION.md` (see template below).
 3. Ensure `.gitignore` contains `agent-prompts/` (keep `bolt-prompts/` if present).
+4. Create-if-missing `docs/dev-pipeline/SHARED.md` seeded from Authoritative paths + Observed surfaces (see [shared.md](shared.md)). Do not duplicate contract bodies.
 
 ### Create-if-missing (skip when file already has real content)
 
@@ -96,9 +97,10 @@ Prefer tables and path pointers over prose.
 | `docs/ARCHITECTURE.md` | Create only if missing; otherwise link from `ADOPTION.md` / PRODUCT |
 | `docs/ROADMAP.md` | Create only if missing; seed from Observed roadmap/changelog — mark Inferred rows |
 | `docs/dev-pipeline/PHASES.md` | Create with `PH-00` intake (or no active) if missing |
+| `docs/dev-pipeline/SHARED.md` | Create/seed from Authoritative paths + Observed surfaces if missing |
 | `docs/dev-pipeline/phases/PH-00-intake/` | `README.md`, `CONTEXT.md`, empty/minimal `TASK-QUEUE.md` if phase dir missing |
 
-With `--refresh`: update `ADOPTION.md` + additive notes on active (or intake) `CONTEXT.md`; **do not** overwrite PRODUCT/ARCHITECTURE/ROADMAP content.
+With `--refresh`: update `ADOPTION.md` + additive notes on active (or intake) `CONTEXT.md` + additive `SHARED.md` path refresh; **do not** overwrite PRODUCT/ARCHITECTURE/ROADMAP content.
 
 ### Never
 
@@ -135,16 +137,19 @@ With `--refresh`: update `ADOPTION.md` + additive notes on active (or intake) `C
 |------|--------------|----------|
 | … | done / partial / planned | Observed from `{path}` / Inferred |
 
-## Authoritative paths (for CONTEXT / contract freeze)
+## Authoritative paths (for CONTEXT / contract freeze / SHARED)
 
 - Entities: `…`
 - API/DTO: `…`
 - Decisions: `…`
 - Business rules: `…`
 
+Copy these into `docs/dev-pipeline/SHARED.md` Authoritative shared paths (create-if-missing). Phase freezes must point at the same spine.
+
 ## Pipeline overlays created/linked
 
 - `docs/dev-pipeline/PHASES.md` — created | existed
+- `docs/dev-pipeline/SHARED.md` — created | existed | seeded
 - …
 
 ## Unknowns / blockers
@@ -154,13 +159,15 @@ With `--refresh`: update `ADOPTION.md` + additive notes on active (or intake) `C
 ## Next commands
 
 1. `/dev-pipeline backlog` — confirm Inferred backlog against evidence
-2. `/dev-pipeline phase new <slug> --set-active` — when ready to leave intake
-3. `/dev-pipeline status`
+2. `/dev-pipeline shared` — confirm shared SoT spine
+3. `/dev-pipeline phase new <slug> --set-active` — when ready to leave intake
+4. `/dev-pipeline surface new <slug>` — when adding backend/another service
+5. `/dev-pipeline status`
 ```
 
 ## Phase `CONTEXT.md` seeding from adopt
 
-Copy **paths only** (+ short notes) from the Source map / Authoritative paths into intake or active `CONTEXT.md` tables. Do not paste large doc bodies.
+Copy **paths only** (+ short notes) from the Source map / Authoritative paths into intake or active `CONTEXT.md` tables **and** into `SHARED.md`. Do not paste large doc bodies.
 
 Add:
 
