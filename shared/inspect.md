@@ -11,7 +11,7 @@ Evidence rules (all slices): tag claims **Observed** / **Inferred** / **Unknown*
 | `dev-pipeline` | docs, pipeline, git (before writes), manifest+code when `backlog` / `story extract` | Reuse inspect snapshot when fresh |
 | `promptize` | pipeline-handoff (if any), manifest, code, docs, git (`--execute`) | Skip manifest/code slices already covered by handoff |
 | `review-task` | git, pipeline (task prompt + queue), manifest (validation only) | Resolve TASK_ID before change-set |
-| `commit` | git | Optional TASK-ID from handoff / queue |
+| `commit` | git (minimal) | `status -sb` → stat → scoped diff; `log -3`; reuse session scope |
 
 ## Reuse inspect snapshot (token savings)
 
@@ -82,12 +82,14 @@ For `backlog`, `story extract`, or code-heavy Promptize tasks:
 
 ## Slice: git
 
-When writing files, committing, reviewing, or `--execute`:
+When writing files, reviewing, or `--execute`:
 
 ```bash
 git status -sb
-git rev-parse --abbrev-ref HEAD   # when reviewing
+git rev-parse --abbrev-ref HEAD   # review-task
 ```
+
+**Commit (token-minimal):** `status -sb` → `--stat` → scoped `git diff -- <paths>`; `git log -3 --format='%s'`; reuse session/task context before opening pipeline queue files.
 
 Record dirty paths; treat unrelated dirty files as **protected**. Note overlap before editing dirty targets.
 

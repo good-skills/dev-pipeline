@@ -1,106 +1,57 @@
 ---
 name: commit
 description: >-
-  Commits current working-tree changes with a concise, repo-style message
-  derived from the diff. Prefer including TASK-ID or Feature-ID in the subject
-  when the change is pipeline task work. Use when the user starts with /commit,
-  attaches this skill, or explicitly asks to commit via the commit skill. Does
-  not push unless the user also asks to push.
+  One git commit, repo-style message. Token-minimal inspect (stat-first, scoped
+  diff). /commit or explicit commit ask. No push unless user also asks.
 disable-model-invocation: true
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Commit
 
-When the user message begins with `/commit`, this skill is attached, or they explicitly ask to **commit the latest / current changes** via this skill, run the commit workflow below **immediately**.
+`/commit`, `/commit <hint>`, or explicit commit ask → run **immediately**. One commit; no push unless the user also asks.
 
-**Purpose:** Stage relevant changes and create **one** git commit with a proper message that matches the repository’s style. Do not push unless the user also explicitly asks.
+**Safety:** Follow user git commit rules when present. Also: no git config changes, no skip hooks, no push, no `-i`, exclude secrets (`.env`, keys, credentials).
 
-## Activation
+## Inspect (strict order — saves tokens)
 
-| Form | Behavior |
-|------|----------|
-| `/commit` | Commit all relevant current changes |
-| `/commit <hint>` | Same, using `<hint>` to steer the message (still base it on the diff) |
-| Skill attached + “commit” / “commit the latest changes” | Same as `/commit` |
+Do **not** run full-repo `git diff` by default.
 
-Do not treat unrelated coding requests as this skill unless `/commit` or an explicit commit-skill ask is present.
+1. `git status -sb` — if nothing to commit, stop.
+2. **Session reuse** — if this turn or the prior turn already knows scope (task prompt, files you edited, user-listed paths), use that; skip re-reading large diffs.
+3. `git diff --stat` and `git diff --cached --stat` — pick paths to include/exclude.
+4. **Scoped diff only** — `git diff -- <paths>` / `git diff --cached -- <paths>` for staged/unstaged paths you will commit. Full `git diff` only when ≤15 changed files **and** stat lines look small; otherwise stay scoped.
+5. `git log -3 --format='%s'` — style only (prefix, scope, length); not 8+ commits.
+6. **Task id** (optional): user hint → conversation handoff path → only then queue/`TASK-QUEUE.md`. Do not open pipeline docs if id already known.
 
-## Safety
+## Decide scope
 
-Follow the user’s Cursor **git commit rules** when present (hooks, amend policy, no force-push). In addition, this skill requires:
+- Task-scoped when work was a pipeline task; exclude unrelated dirty files.
+- No empty commit. Ambiguous mixed concerns → ask before grouping.
 
-- **NEVER** update git config
-- **NEVER** skip hooks unless the user explicitly requests it
-- **NEVER** push unless the user explicitly asks
-- **NEVER** use interactive git (`-i`)
-- Do **not** commit secrets (`.env`, credentials, private keys). Warn and exclude them
+## Message
 
-## Workflow
+- 1–2 sentences; **why** over file lists.
+- Match `git log` style (`feat:`, `fix:`, `docs:`, …).
+- Pipeline work: subject scope e.g. `feat(ASK-01): …` or `fix(TASK-ASK-01-01): …`.
+- `/commit <hint>` — use hint only if it fits the diff.
 
-Independent reads may be parallel; stage → commit → verify are sequential.
-
-### 1. Inspect (parallel)
-
-```bash
-git status
-git diff
-git diff --cached
-git log -8 --oneline
-```
-
-Use `git log` to match this repo’s message style (tense, prefixes like `feat:`, scope, length).
-
-**Resolve pipeline task id (optional but recommended):**
-
-1. Explicit id in user message or `/commit` hint (`TASK-…` or feature id like `ASK-01`)
-2. `agent-prompts/TASK-*.md` path from conversation
-3. Active `in_progress` row in phase `TASK-QUEUE.md`
-
-### 2. Decide what to commit
-
-- Include tracked modifications and relevant untracked source/docs that belong to the change
-- Exclude secrets, build artifacts, and unrelated junk unless the user explicitly requires them
-- Prefer **task-scoped** commits when the work is a pipeline task — do not bundle unrelated concerns
-- If there are **no** changes to commit: tell the user and **stop** — do not create an empty commit
-- If scope is ambiguous and grouping would be wrong: ask before committing
-
-### 3. Draft the message
-
-- 1–2 sentences, focus on **why** over a file laundry list
-- Match repo style from `git log` (e.g. `feat:`, `fix:`, `docs:`, `refactor:`)
-- **Pipeline task work:** include id in subject for `/review-task` traceability, e.g.:
-  - `feat(ASK-01): add login validation` (feature id)
-  - `fix(TASK-ASK-01-01): handle empty email` (full task id)
-  - `feat(TASK-USER-02-01): …` when repo uses full task ids in scopes
-- If the user passed `/commit <hint>`, incorporate the hint only where it fits the actual diff
-
-### 4. Stage and commit
+## Stage, commit, verify
 
 ```bash
-git add <relevant paths>
+git add <paths>
 git commit -m "$(cat <<'EOF'
 Message here.
 
 EOF
 )"
-git status
+git status -sb
 ```
 
-Always pass the message via a HEREDOC so formatting stays intact.
+Report: hash + subject, ahead of remote?, task id if used, remaining dirty paths (if any).
 
-### 5. Report
+## Failures
 
-Confirm: commit hash/subject, whether the branch is ahead of remote, working tree state, and the task id used in the message (if any).
+Hook failed → fix, **new** commit (user amend rules). Secrets → unstage, warn, commit safe subset or stop.
 
-## Failure handling
-
-- **Hook failure:** fix and create a **new** commit (follow user amend rules if applicable)
-- **Nothing to commit:** say so; stop
-- **Secrets in change set:** unstage/exclude, warn, commit the rest if safe; otherwise stop and ask
-
-## Out of scope
-
-- Creating pull requests
-- Pushing to remote (unless the user explicitly asks)
-- Rebase, merge, or branch management beyond what’s required to commit
+**Out of scope:** PR, push, rebase/merge.
