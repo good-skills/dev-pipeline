@@ -28,8 +28,11 @@ Write **self-contained** prompts. No “as discussed above”.
 **blocks:** {ids or —}
 **Queue:** `docs/dev-pipeline/phases/{PH}/TASK-QUEUE.md`
 
+## Inherited context (when SESSION-CACHE carry-over applies)
+Same PRODUCT identity and SHARED contract index as `{last_handoff TASK-ID}` — see `docs/dev-pipeline/SESSION-CACHE.md`. Read only **delta** paths listed below.
+
 ## Product identity (do not violate)
-{1–3 lines from docs/PRODUCT.md}
+{1–3 lines from PRODUCT.md — or "same as inherited" when carry-over}
 
 ## Shared source of truth (do not fork)
 - Index: `docs/dev-pipeline/SHARED.md`
@@ -86,8 +89,9 @@ Write **self-contained** prompts. No “as discussed above”.
 
 ## Handoff
 1. Implement only this task.
-2. User runs `/commit` (commit skill) when ready — include `TASK-ID` or Feature-ID in commit subject when possible.
-3. User runs `/review-task {TASK-ID}` — PASS → run `/dev-pipeline next`; FAIL/PARTIAL → rework prompt.
+2. **Read order:** this prompt → Required changes paths → Contracts paths — not full SHARED/PRODUCT if inherited.
+3. User runs `/commit` — include `TASK-ID` or Feature-ID in subject when possible.
+4. User runs `/review-task {TASK-ID}` — PASS → `/dev-pipeline next`; FAIL/PARTIAL → rework prompt.
 
 ## Optional: deepen with Promptize
 - When to use: task is complex, cross-cutting, high-risk, or AC/contracts are still fuzzy after this handoff.
@@ -120,7 +124,8 @@ Keep original Acceptance criteria that are still open; mark passed ones as alrea
 
 ## Selection rules for `/dev-pipeline next`
 
-1. Active phase queue only.
+1. Read `SESSION-CACHE.md` — delta inspect when `last_handoff` set ([../shared/context-cache.md](../shared/context-cache.md)).
+2. Active phase queue only.
 2. Status `ready` (or `todo` with all `depends_on` done).
 3. Skip `blocked`, `in_progress` (unless user forces ID), `done`.
 4. Prefer rework `*-R{N}` for the same feature before advancing to the next feature.

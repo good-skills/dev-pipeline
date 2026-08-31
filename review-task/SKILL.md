@@ -17,7 +17,7 @@ When the user message begins with `/review-task`, this skill is attached, or the
 
 **Purpose:** Verify an implementer agent’s diff against the **exact task prompt** that was assigned, report PASS/FAIL/PARTIAL, update queue status, and on failure emit a rework prompt under `agent-prompts/` (gitignored). On PASS, **do not** write the next task prompt — delegate to `/dev-pipeline next`.
 
-**Companions:** Task prompts from `/dev-pipeline`; commits via `/commit`. Inspect slices: [../shared/inspect.md](../shared/inspect.md). Legacy `bolt-prompts/` + `review-bolt-changes` remain valid for bolt-specific flows.
+**Companions:** Task prompts from `/dev-pipeline`; commits via `/commit`. Inspect: [../shared/inspect.md](../shared/inspect.md). Token rules: [../shared/token-efficiency.md](../shared/token-efficiency.md).
 
 ## Activation
 
@@ -76,6 +76,8 @@ Determine `TASK_ID` and prompt path — use **one** match; if multiple candidate
 6. Legacy `bolt-prompts/`, else ask (blocking)
 
 Read the full prompt. Extract: Goal, Required changes, Out of scope, Acceptance criteria, Definition of done, Contracts.
+
+Do **not** re-read PRODUCT/SHARED/epic files if the task prompt already contains inherited context or cites paths as satisfied — verify only the change-set.
 
 ### 2. Collect the change set
 

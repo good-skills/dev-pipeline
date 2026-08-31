@@ -6,6 +6,7 @@ Read [../shared/inspect.md](../shared/inspect.md) for the unified inspect layer.
 
 Run in order; stop when the task is sufficiently specified:
 
+0. **SESSION-CACHE** — reuse Carry-over; skip Loaded paths ([../shared/context-cache.md](../shared/context-cache.md))
 1. **pipeline-handoff** — if `agent-prompts/TASK-*.md`, `docs/promptize-prompts/TASK-*.md`, or queue row exists
 2. **manifest** — unless handoff already lists stack and validation commands
 3. **code** — affected implementation areas only

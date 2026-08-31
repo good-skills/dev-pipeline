@@ -15,6 +15,7 @@ docs/
     PHASES.md                # phase index + active pointer
     SHARED.md                # product-wide shared SoT: surfaces + authoritative contracts
     ADOPTION.md              # mid-flight adopt/refresh snapshot (optional until adopt)
+    SESSION-CACHE.md         # gitignored agent read cache (see ../shared/context-cache.md)
     phases/
       PH-00-intake/          # optional intake after adopt/init
         README.md
@@ -41,6 +42,8 @@ docs/
 
 agent-prompts/               # gitignored handoff prompts (required)
 ```
+
+`docs/dev-pipeline/SESSION-CACHE.md` is gitignored agent tooling — paths already read + carry-over for delta `next` ([../shared/context-cache.md](../shared/context-cache.md)).
 
 If the repo already uses `docs/epics/`, `docs/backend/epics/`, or `docs/epics-*/`, **keep those paths**. Put only phase/queue/shared overlays under `docs/dev-pipeline/`.
 
@@ -260,6 +263,7 @@ Ensure:
 
 ```gitignore
 agent-prompts/
+docs/dev-pipeline/SESSION-CACHE.md
 ```
 
 Keep existing `bolt-prompts/` ignore entries if present.

@@ -90,6 +90,7 @@ Prefer tables and path pointers over prose.
 2. Write or update `docs/dev-pipeline/ADOPTION.md` (see template below).
 3. Ensure `.gitignore` contains `agent-prompts/` (keep `bolt-prompts/` if present).
 4. Create-if-missing `docs/dev-pipeline/SHARED.md` seeded from Authoritative paths + Observed surfaces (see [shared.md](shared.md)). Do not duplicate contract bodies.
+5. Create-if-missing gitignored `docs/dev-pipeline/SESSION-CACHE.md` stub (see [../shared/context-cache.md](../shared/context-cache.md)); ensure `.gitignore` lists it.
 
 ### Create-if-missing (skip when file already has real content)
 

@@ -7,7 +7,7 @@ description: >-
   spec. Supports --execute, --full, --save-to-file, and --save (alias) flags.
   Default output is compact (8 sections); use --full for API/migration work.
 disable-model-invocation: true
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Promptize
@@ -20,7 +20,9 @@ When the user message begins with `/promptize`, or the user explicitly asks to *
 
 ## References
 
+- Token efficiency: [../shared/token-efficiency.md](../shared/token-efficiency.md)
 - Unified inspect layer: [../shared/inspect.md](../shared/inspect.md)
+- Session cache: [../shared/context-cache.md](../shared/context-cache.md)
 - Promptize inspect slices: [inspection.md](inspection.md)
 - Git, deps, security, DB, API, UI, NFR, protected areas: [policies.md](policies.md)
 
@@ -35,6 +37,7 @@ When the user message begins with `/promptize`, or the user explicitly asks to *
 7. **Risky ops** — Confirmation for destructive/migration/security work is separate from no-auto-execute.
 8. **Save** — `--save-to-file` / `--save` persist the prompt with YAML metadata.
 9. **Tiered output** — default **compact** (8 sections); `--full` for the complete 20-section template (API, migration, cross-cutting).
+10. **No duplicate inspect** — read `SESSION-CACHE.md` and pipeline handoff before manifest/docs/code slices ([../shared/token-efficiency.md](../shared/token-efficiency.md)).
 
 ## Activation
 

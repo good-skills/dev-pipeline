@@ -1,15 +1,21 @@
 # Unified repository inspection
 
-Shared inspect layer for pipeline skills. Read the **slices** your skill needs — do not run every slice on every command.
+Shared inspect layer for pipeline skills. Read [token-efficiency.md](token-efficiency.md) first. Read **slices** your skill needs — do not run every slice on every command.
 
 Evidence rules (all slices): tag claims **Observed** / **Inferred** / **Unknown**; never present Inferred as Observed.
+
+## Session cache (before any doc read)
+
+1. Open `docs/dev-pipeline/SESSION-CACHE.md` if present ([context-cache.md](context-cache.md)).
+2. Reuse **Carry-over** and skip **Loaded** paths unless file is dirty or task needs a new section.
+3. After `next` / `task`, update cache — do not rely on chat memory alone.
 
 ## Skill slices
 
 | Skill | Slices | Notes |
 |-------|--------|-------|
-| `dev-pipeline` | docs, pipeline, git (before writes), manifest+code when `backlog` / `story extract` | Reuse inspect snapshot when fresh |
-| `promptize` | pipeline-handoff (if any), manifest, code, docs, git (`--execute`) | Skip manifest/code slices already covered by handoff |
+| `dev-pipeline` | docs, pipeline, cache, git (before writes), manifest+code when `backlog` / `story extract` | Delta `next` when cache fresh |
+| `promptize` | cache, pipeline-handoff, manifest, code, docs, git (`--execute`) | Skip slices covered by handoff + cache |
 | `review-task` | git, pipeline (task prompt + queue), manifest (validation only) | Resolve TASK_ID before change-set |
 | `commit` | git (minimal) | `status -sb` → stat → scoped diff; `log -3`; reuse session scope |
 

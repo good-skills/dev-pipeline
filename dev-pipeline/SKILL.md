@@ -16,7 +16,7 @@ description: >-
   prompt, optionally deepen a handoff with Promptize, or track epic/feature
   status across multi-agent development.
 disable-model-invocation: true
-version: 1.7.0
+version: 1.8.0
 ---
 
 # Dev Pipeline
@@ -40,6 +40,7 @@ When the user message begins with `/dev-pipeline`, this skill is attached, or th
 9. **User stories as product-wide SHARED SoT** — durable `US-*` files under `docs/user-stories/`; indexed in `SHARED.md` for **all** surfaces; **not** owned by a single service/phase. Each story holds business logic and ordered **flows**; task prompts must cite related stories and check flow coverage. Mid-flight: `story extract` harvests journeys from implemented features into that shared spine.
 10. **Shared SoT for all surfaces** — phases plus `docs/dev-pipeline/SHARED.md` are the **whole source of truth** for contracts, entities, user stories, and absorbed product rules when adding a backend during/after frontend or any new service; never fork a parallel contract or story spine per surface.
 11. **Promptize is a companion, not the tracker** — `/dev-pipeline` owns product identity, phases, briefs, stories, backlog, and compact `agent-prompts/` handoffs. `/promptize` owns **one-off or deep** repository-aware engineering specs (inspect → structured Promptize body → optional `--execute`). Use Promptize **outside** the queue for ad-hoc work, or **after** `next`/`task` (or with `--promptize`) when a backlog task needs a fuller engineering spec. Never replace `brief` / `story` / `backlog` / `adopt` with Promptize.
+12. **Session cache + delta handoffs** — `docs/dev-pipeline/SESSION-CACHE.md` (gitignored) records paths already read and stable carry-over; consecutive `next` reuses PRODUCT/SHARED summaries and reads **delta only** ([../shared/context-cache.md](../shared/context-cache.md)).
 
 ## Activation
 
@@ -97,6 +98,8 @@ If prose mixes journey + delivery, run `story` first for flow SoT, then `brief` 
 
 ## References
 
+- Token efficiency (read first): [../shared/token-efficiency.md](../shared/token-efficiency.md)
+- Session read cache: [../shared/context-cache.md](../shared/context-cache.md)
 - Unified inspect: [../shared/inspect.md](../shared/inspect.md)
 - Folder layout, IDs, statuses, templates: [schema.md](schema.md)
 - Phase rules & switching: [phases.md](phases.md)
@@ -149,10 +152,10 @@ Follow [../shared/inspect.md](../shared/inspect.md) — run only slices needed f
 | `adopt` | docs, manifest (index-first), pipeline overlay paths, git if writing |
 | `brief`, `story` (prose) | docs, pipeline |
 | `backlog`, `story extract` | docs, pipeline, **manifest + code skim** |
-| `next`, `task` | pipeline (+ docs links cited by queue row) |
-| `next --promptize` / `task --promptize` | pipeline first; pass handoff to Promptize (see below) |
+| `next`, `task` | cache → pipeline delta (queue row + new links only) |
+| `next --promptize` / `task --promptize` | cache → handoff → Promptize (no full re-inspect) |
 
-Reuse **Inspect snapshot** from `ADOPTION.md` when fresh (see [adopt.md](adopt.md)). Do not re-read the full docs tree every subcommand.
+Reuse **SESSION-CACHE** carry-over + **Inspect snapshot** from `ADOPTION.md` when fresh. See [../shared/context-cache.md](../shared/context-cache.md).
 
 ### 2. Branch by subcommand
 
@@ -164,8 +167,9 @@ Reuse **Inspect snapshot** from `ADOPTION.md` when fresh (see [adopt.md](adopt.m
 4. Write `docs/dev-pipeline/PHASES.md` with no active phase or `PH-00` intake.
 5. Write stub `docs/dev-pipeline/SHARED.md` (surfaces from PRODUCT + empty authoritative table, or seed if contract paths already exist).
 6. Create stub `docs/user-stories/README.md` + `INDEX.md` + empty `intake/` (see [user-stories.md](user-stories.md)); index the path in SHARED when seeding.
-7. Ensure `.gitignore` contains `agent-prompts/` (and keep `bolt-prompts/` if already ignored).
-8. Stop with paths created + next suggested command (`backlog`, `phase new`, `story`, or `surface new`).
+7. Ensure `.gitignore` contains `agent-prompts/` and `docs/dev-pipeline/SESSION-CACHE.md` (keep `bolt-prompts/` if already ignored).
+8. Create stub `docs/dev-pipeline/SESSION-CACHE.md` per [../shared/context-cache.md](../shared/context-cache.md).
+9. Stop with paths created + next suggested command (`backlog`, `phase new`, `story`, or `surface new`).
 
 Use `init` for greenfield. If the repo already has a substantial docs tree, prefer **`adopt`**.
 
@@ -239,19 +243,15 @@ Ingest user journeys as **durable product-wide SHARED business-flow SoT**; one f
 
 #### `next` / `task`
 
-1. Resolve active phase + queue.
-2. Pick highest-priority **ready** item (deps satisfied, not blocked) — or the Feature/Task ID if forced.
-3. Resolve related `US-*` stories (feature Links, INDEX, queue notes); follow [user-stories.md](user-stories.md) task emission rules — cite stories and **flow coverage** (implemented vs open).
-4. Write one self-contained **pipeline** handoff via [prompt-template.md](prompt-template.md) to `agent-prompts/{TASK-ID}.md`.
-5. Set queue row to `ready` or `in_progress` as appropriate.
-6. Tell the user to hand that file to the implementing agent; mention `/commit` after work and `/review-task` after commit/push.
-7. **Optional deepen (`--promptize` or user asks to promptize this task):**
-   - Do **not** skip step 4 — the pipeline handoff (IDs, SHARED, US-*, queue) remains authoritative for product tracking.
-   - Activate **Promptize** with handoff path + short seed: `/promptize --save-to-file docs/promptize-prompts/{TASK-ID}.md …` (create dir if missing). Promptize reads `agent-prompts/{TASK-ID}.md` first ([shared inspect pipeline-handoff slice](../shared/inspect.md)) — **do not** duplicate full repo inspect.
-   - Link saved spec path from handoff **Optional: deepen with Promptize**.
-   - Default Promptize mode: **prompt-only** + **compact** tier. Use `--execute` only if user explicitly wants implementation in the same turn.
-   - Promptize must **not** invent backlog IDs or contradict SHARED / US-* flows.
-8. Without `--promptize`: still mention that complex/ambiguous tasks may be deepened later with `/promptize` (see companions).
+1. Read `docs/dev-pipeline/SESSION-CACHE.md` if present — reuse **Carry-over**; read **Delta** paths only when `last_handoff` exists and same phase ([../shared/context-cache.md](../shared/context-cache.md)).
+2. Resolve active phase + queue; pick highest-priority **ready** item (or forced Feature/Task ID).
+3. Resolve related `US-*` — read only stories/flows **not** already in cache Loaded table.
+4. Write handoff via [prompt-template.md](prompt-template.md) to `agent-prompts/{TASK-ID}.md` — use **Inherited context** line when carry-over applies.
+5. **Update SESSION-CACHE.md**: `last_handoff`, Loaded rows, Carry-over, Delta for following `next`.
+6. Set queue row to `ready` or `in_progress` as appropriate.
+7. Tell user: hand off file → `/commit` → `/review-task`; PASS → `/dev-pipeline next`.
+8. **Optional `--promptize`:** after step 4, run Promptize with handoff path only ([../shared/token-efficiency.md](../shared/token-efficiency.md)) — prompt-only + compact; link `docs/promptize-prompts/{TASK-ID}.md`.
+9. Without `--promptize`: mention `/promptize` for complex tasks only.
 
 #### When to use Promptize vs this skill (routing)
 
@@ -273,18 +273,16 @@ Default: documentation + prompt handoff only. Implementation belongs to the othe
 
 ## Context loading order (for agents using the docs)
 
-Load **only** what the current task needs — stop when the task is actionable. Do not read all 10 layers for every task.
+Check `SESSION-CACHE.md` first. Load **only** delta paths — stop when the task is actionable.
 
-1. `docs/PRODUCT.md` (identity — short)
-2. `docs/dev-pipeline/SHARED.md` if present (surfaces + contracts — especially cross-surface work)
-3. `docs/dev-pipeline/ADOPTION.md` if present (source map + inspect snapshot)
-4. `docs/dev-pipeline/PHASES.md` → active phase README
-5. Active phase `briefs/CLAIMS.md` when domain rules for that phase matter
-6. `docs/user-stories/INDEX.md` + linked `US-*.md` when user-facing (required if feature Links cite stories)
-7. Active `TASK-QUEUE.md` row for the task
-8. Parent epic section for the feature
-9. Linked contract/entity/business-rule/**user-story** paths from feature + SHARED
-10. Skip unrelated suites
+1. Cache Carry-over (PRODUCT one-liners, SHARED path list) if fresh
+2. Else `docs/PRODUCT.md` (short)
+3. Else `docs/dev-pipeline/SHARED.md` if task touches contracts/surfaces
+4. `docs/dev-pipeline/ADOPTION.md` inspect snapshot if adopt context needed
+5. Active `TASK-QUEUE.md` row + parent epic section for **this** feature only
+6. Linked `US-*.md` only if cited and not in cache Loaded
+7. Contract/entity paths **new to this task** only
+8. Skip unrelated suites and cached paths
 
 ## Out of scope for this skill
 
