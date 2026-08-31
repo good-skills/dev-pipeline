@@ -4,9 +4,10 @@ description: >-
   Transforms short natural-language requests into repository-aware engineering
   task specifications after inspecting the repo. Use when the user starts with
   /promptize, or asks to promptize / expand a brief request into an engineering
-  spec. Supports --execute, --save-to-file, and --save (alias) flags.
+  spec. Supports --execute, --full, --save-to-file, and --save (alias) flags.
+  Default output is compact (8 sections); use --full for API/migration work.
 disable-model-invocation: true
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Promptize
@@ -19,7 +20,8 @@ When the user message begins with `/promptize`, or the user explicitly asks to *
 
 ## References
 
-- Inspection procedure and evidence rules: [inspection.md](inspection.md)
+- Unified inspect layer: [../shared/inspect.md](../shared/inspect.md)
+- Promptize inspect slices: [inspection.md](inspection.md)
 - Git, deps, security, DB, API, UI, NFR, protected areas: [policies.md](policies.md)
 
 ## Design decisions
@@ -32,6 +34,7 @@ When the user message begins with `/promptize`, or the user explicitly asks to *
 6. **Scope** — Required vs supporting vs optional; optional out unless requested; explicit Out of Scope.
 7. **Risky ops** — Confirmation for destructive/migration/security work is separate from no-auto-execute.
 8. **Save** — `--save-to-file` / `--save` persist the prompt with YAML metadata.
+9. **Tiered output** — default **compact** (8 sections); `--full` for the complete 20-section template (API, migration, cross-cutting).
 
 ## Activation
 
@@ -56,6 +59,7 @@ Parse flags anywhere after `/promptize` before treating the remainder as the sho
 | Flag | Argument | Meaning |
 |------|----------|---------|
 | `--execute` | none | Implement after generating the prompt |
+| `--full` | none | Emit the full 20-section template (default: **compact**) |
 | `--save-to-file` or `--save` | optional `{FILE_PATH}` | Persist the generated prompt to a file |
 
 ### `--save-to-file` / `--save` rules
@@ -99,9 +103,9 @@ Phases are sequential and distinct:
 
 1. **Parse** — flags + short request.
 2. **Understand** — outcome, scope, risks. No coding.
-3. **Inspect** — follow [inspection.md](inspection.md). Task-scoped only. Read [policies.md](policies.md) when the domain hits git, deps, security, DB, API, UI, NFR, or protected areas.
-4. **Decide** — apply Engineering Contracts below; ask only for **blocking** unknowns.
-5. **Generate** — emit the self-contained prompt (format below).
+3. **Inspect** — follow [../shared/inspect.md](../shared/inspect.md) + [inspection.md](inspection.md). Task-scoped slices only. Read [policies.md](policies.md) when the domain hits git, deps, security, DB, API, UI, NFR, or protected areas.
+4. **Decide** — apply Engineering Contracts below; choose **compact** vs **full** output; ask only for **blocking** unknowns.
+5. **Generate** — emit the self-contained prompt (**compact** by default, or **full** with `--full`).
 6. **Persist** — if `--save-to-file` / `--save`, write with metadata and report the path.
 7. **Execute** — only if `--execute` or same-message implement ask; otherwise **stop**. Follow Execution Rules.
 
@@ -164,11 +168,68 @@ Include a short decision summary (not chain-of-thought): what will be extended v
 
 # Generated Prompt Format
 
-Emit these sections in order. Start the body with `Promptize specification version: 1`.
-
-For sections that do not apply: `N/A — Not applicable to this task.`
+Start the body with `Promptize specification version: 1` and `Output tier: compact | full`.
 
 Do not fabricate APIs, state, files, or tests to fill the template.
+
+**Choose tier:**
+
+| Tier | When | Flag |
+|------|------|------|
+| **compact** (default) | Bugfix, small feature, docs-only, single-module change | none |
+| **full** | New/modified API, migration, security-sensitive, multi-surface, ambiguous impact | `--full` |
+
+---
+
+## Compact format (default — 8 sections)
+
+Emit in order. Merge subsections as bullets; skip empty bullets.
+
+### 1. Objective
+
+One clear outcome statement.
+
+### 2. Engineering Decisions
+
+Material choices: extend vs replace, deps, migrations.
+
+### 3. Repository Context
+
+Single section with sub-bullets only as needed:
+
+- Stack (Observed / Inferred / Unknown + source)
+- Architecture (if relevant)
+- Relevant files (path, role, evidence)
+- Patterns, tests/validation commands, project instructions (brief)
+
+### 4. Current Behavior
+
+Evidence-based today state.
+
+### 5. Desired Behavior
+
+What must be true after the change.
+
+### 6. Requirements
+
+Functional + technical bullets; include API/data-flow detail here when compact tier. Add impact bullets only when non-obvious.
+
+### 7. Constraints & Out of Scope
+
+Constraints, protected areas, dependency policy; explicit **Out of Scope** list. Add Security / NFR bullets here only when applicable (otherwise omit).
+
+### 8. Acceptance, Validation & Plan
+
+- **Acceptance criteria** — observable, testable
+- **Testing & validation** — repo commands or manual steps
+- **Definition of done** — short checklist
+- **Implementation plan** — ordered steps
+
+---
+
+## Full format (`--full` — 20 sections)
+
+Emit these sections in order. For sections that do not apply: `N/A — Not applicable to this task.`
 
 ## Objective
 

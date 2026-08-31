@@ -186,6 +186,15 @@ After creating the phase directory, if the user message includes capability pros
 2. Run this briefing workflow once as `BRIEF-001` for that phase.
 3. Do not create a second phase or reallocate `PH-*`.
 
+## Interaction with `story`
+
+Briefs and stories are complementary (see [user-stories.md](user-stories.md)):
+
+- `brief` = phase claim intake → rules/backlog deltas
+- `story` = durable product journeys + flow coverage
+
+When a claim is clearly a user journey, agents may **suggest** `/dev-pipeline story …` or cross-link `CLM-*` ↔ `US-*`. Default `brief` alone does not require creating story files.
+
 ## Safety & evidence
 
 - Tag synthesis Inferred when normalizing fuzzy speech; store **verbatim** raw input in the BRIEF file (Observed user text).

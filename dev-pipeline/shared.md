@@ -2,19 +2,20 @@
 
 Read from `SKILL.md` when registering surfaces, creating phases for a new part of the system, refreshing shared contracts, or emitting task prompts that must stay aligned across frontend/backend/services.
 
-**Purpose:** When the product grows a new surface (e.g. backend during or after frontend, a second API, a worker), **phases + shared contracts** are the **whole source of truth** for every new service. Agents must not invent parallel business rules, APIs, DTOs, or entity models per surface.
+**Purpose:** When the product grows a new surface (e.g. backend during or after frontend, a second API, a worker), **phases + shared contracts + product-wide user stories** are the **whole source of truth** for every new service. Agents must not invent parallel business rules, user stories, APIs, DTOs, or entity models per surface.
 
 ## Core idea
 
 | Layer | Role |
 |-------|------|
 | `docs/dev-pipeline/SHARED.md` | Product-wide index: surfaces + authoritative shared paths |
+| `docs/user-stories/` (`US-*`) | Product-wide business-flow SoT — **all** surfaces consume; none own exclusively |
 | Phase `README` contract freeze | Points **into** SHARED (and cited docs); does not fork contracts |
 | Phase `CONTEXT.md` | Local map for that window; links SHARED rows; additive notes only |
-| Epic / feature Links | Cite the same shared paths |
-| Task prompts | Mandatory **Shared SoT** section; implementers consume, do not reinvent |
+| Epic / feature Links | Cite the same shared paths + `US-*` when user-facing |
+| Task prompts | Mandatory **Shared SoT** + related user stories; implementers consume, do not reinvent |
 
-**Invariant:** There is one shared contract spine for the product. New phases and new services **extend** it additively or open an explicit dual-consumer breaking-change task — they never create a second spine.
+**Invariant:** There is one shared contract **and** story spine for the product. New phases and new services **extend** them additively or open an explicit dual-consumer breaking-change task — they never create a second spine.
 
 ## When this applies
 
@@ -23,7 +24,7 @@ Read from `SKILL.md` when registering surfaces, creating phases for a new part o
 | Frontend phase already exists; starting backend | Register surface `backend` (if missing); `phase new` seeds from `SHARED.md` + prior freezes |
 | Backend and frontend in parallel | Same SHARED index; cross-phase `depends_on` / `co_req` / `blocks`; both freezes cite SHARED |
 | New service (worker, BFF, mobile API) | `/dev-pipeline surface new <slug>` then phase(s); inherit SHARED |
-| Contracts discovered via `adopt` / `brief` | Refresh SHARED authoritatively (paths only); do not duplicate bodies |
+| Contracts / stories discovered via `adopt` / `brief` / `story` / `story extract` | Refresh SHARED authoritatively (paths only); do not duplicate bodies; user-stories consumers = all surfaces |
 
 ## File: `docs/dev-pipeline/SHARED.md`
 
@@ -40,7 +41,8 @@ Create on `init`, `adopt` (create-if-missing), `shared refresh`, or first `surfa
 ## Rule (non-negotiable)
 
 All surfaces and phases consume the paths below as the product-wide contract spine.
-Do **not** invent parallel API/DTO/entity/business-rule trees for a new service.
+Do **not** invent parallel API/DTO/entity/business-rule/**user-story** trees for a new service.
+User stories under `docs/user-stories/` are product-wide — not owned by frontend, backend, or any single surface.
 Extend additively; breaking changes need an explicit task + dual-surface note.
 
 ## Surfaces
@@ -61,6 +63,7 @@ Status: `planned` | `active` | `parked` | `done`
 | Entities | `docs/…` | frontend, backend | Observed from … |
 | API / DTO | `docs/…` | … | … |
 | Business rules | `docs/…` | … | … |
+| User stories / flows | `docs/user-stories/` | all | Observed / extracted — product-wide, not surface-owned |
 | Architecture boundaries | `docs/ARCHITECTURE.md` | all | … |
 | Decisions / ADR | `docs/…` | … | … |
 
@@ -131,10 +134,11 @@ When `phase new` or `phase switch` targets work for a surface that is new or res
 4. If the phase is for a surface not yet in SHARED, run the `surface new` registration steps first (or inline allocate SUR-*).
 5. On switch into a backend (or other) phase after frontend: Inheritance log entry; mark queue items whose shared deps are satisfied as `ready`.
 
-## Brief / backlog interaction
+## Brief / story / backlog interaction
 
 - **Brief:** new claims that introduce contracts must **add or refine SHARED paths** (or ask on contradiction with SHARED), not only phase-local CONTEXT.
-- **Backlog:** feature Links for cross-surface work must cite SHARED paths; `co_req` when FE+BE must share the same contract change.
+- **Story / story extract:** `docs/user-stories/` **must** appear in SHARED with consumers **all** surfaces; stories are business-flow SoT and must not fork a second rules/journey spine per surface. Extract from implemented features updates the same spine.
+- **Backlog:** feature Links should cite SHARED paths (and `US-*` when user-facing); use `co_req` when FE+BE must share the same contract change; prompts inherit them via [prompt-template.md](prompt-template.md).
 
 ## Multi-surface / multi-service rules
 
@@ -146,6 +150,7 @@ When `phase new` or `phase switch` targets work for a surface that is new or res
 
 ## Anti-patterns (forbid)
 
+- Creating `docs/backend/user-stories/` (or any surface-local story tree) instead of consuming SHARED `docs/user-stories/`
 - Creating `docs/backend/api-contract.md` that duplicates `docs/api-contract.md` without linking SHARED and declaring one authoritative
 - Phase CONTEXT that lists invented endpoints absent from SHARED / frozen contracts
 - Task prompts that omit Shared SoT when the feature touches more than one surface
@@ -156,4 +161,3 @@ When `phase new` or `phase switch` targets work for a surface that is new or res
 - Implementing application services
 - Choosing frameworks/stacks (still Observed/Inferred/Unknown from repo)
 - Replacing Promptize for one-off specs
-```

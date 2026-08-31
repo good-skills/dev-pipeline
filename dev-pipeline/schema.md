@@ -30,6 +30,12 @@ docs/
           BRIEF-001.md
   epics/                     # or docs/<suite>/ — epic index + epic files
   business-rules/            # optional; seeded/extended by phase briefs; indexed in SHARED
+  user-stories/              # product-wide US-* business flows (see user-stories.md)
+    README.md
+    INDEX.md
+    intake/
+      STORY-001.md
+    US-001.md
   # optional domain trees already in repo:
   # backend/Entities/, api-contract-and-dtos.md, etc. — one spine via SHARED, no forks
 
@@ -45,9 +51,11 @@ If the repo already uses `docs/epics/`, `docs/backend/epics/`, or `docs/epics-*/
 | `init` | Little/no product docs; bootstrap empty layout |
 | `adopt` | Project already developing; docs tree exists — read it, map state, overlay pipeline |
 | `brief` | User describes phase capabilities in prose — absorb as docs; dedupe repeats |
+| `story` | User describes journeys/flows — durable product-wide `US-*` (SHARED) |
+| `story extract` | Mid-flight: harvest `US-*` from implemented/shipped features into SHARED |
 | `surface new` / `shared refresh` | New service/surface or rebuild shared contract index — see [shared.md](shared.md) |
 
-`adopt` details: [adopt.md](adopt.md). `brief` details: [briefing.md](briefing.md). Shared SoT: [shared.md](shared.md). Do not duplicate existing doc bodies; link and cite paths with Observed / Inferred / Unknown.
+`adopt` details: [adopt.md](adopt.md). `brief` details: [briefing.md](briefing.md). User stories: [user-stories.md](user-stories.md). Shared SoT: [shared.md](shared.md). Do not duplicate existing doc bodies; link and cite paths with Observed / Inferred / Unknown.
 
 ## ID scheme (stable, token-cheap)
 
@@ -68,6 +76,7 @@ Rules:
 - One **task** = one agent session of work (small enough for clear AC).
 - **Brief claim IDs** `CLM-{NNN}` and **brief session IDs** `BRIEF-{NNN}` are per-phase, stable, never renumbered (see [briefing.md](briefing.md)).
 - Phase briefs must not allocate a new `PH-*` or reshuffle existing Task/Feature IDs.
+- **User story IDs** `US-{NNN}`, **flow IDs** `US-{NNN}-F{NN}`, and **story intake IDs** `STORY-{NNN}` are product-wide (intake sessions under `user-stories/intake/`), stable, never renumbered (see [user-stories.md](user-stories.md)).
 - **Surface IDs** `SUR-*` are product-wide, stable; see [shared.md](shared.md).
 
 ## Status legend
@@ -164,6 +173,10 @@ Per-phase folder for natural-language capability briefs:
 
 Full rules: [briefing.md](briefing.md).
 
+## Phase `TASK-QUEUE.md` and stories
+
+When a queue row implements user-facing behavior, prefer a note or feature Link to `US-*` / flows. Prompt emission must run the flow coverage check in [user-stories.md](user-stories.md).
+
 ## `TASK-QUEUE.md` template
 
 ```markdown
@@ -197,6 +210,7 @@ Update the Prompt column to `agent-prompts/TASK-….md` when emitted.
 ### Links
 - Entity: `docs/…`
 - Contract: `docs/…`
+- User stories: `docs/user-stories/US-001.md` (flows: US-001-F01, …)
 ```
 
 ## PRODUCT.md (minimum)
@@ -213,7 +227,7 @@ When created by `adopt`, prefer linking Observed identity sources over rewriting
 Written/updated by `init`, `adopt`, `shared refresh`, `surface new`, and phase create/switch seeding. Holds:
 
 - Surfaces registry (`SUR-*`)
-- Authoritative shared paths (entities, API/DTO, business rules, architecture, ADRs)
+- Authoritative shared paths (entities, API/DTO, business rules, user stories, architecture, ADRs)
 - Inheritance log
 
 Full template and commands: [shared.md](shared.md).
@@ -223,6 +237,7 @@ Full template and commands: [shared.md](shared.md).
 Written by `adopt` / `adopt --refresh`. Holds:
 
 - Docs root + discovery rule
+- **Inspect snapshot** (`snapshot_at`, manifest roots, validation commands, high-signal doc paths) — reuse for token-efficient inspect ([../shared/inspect.md](../shared/inspect.md))
 - Source map (category → path → evidence)
 - Built vs open table
 - Authoritative contract/entity/decision paths
@@ -235,6 +250,10 @@ Full template: [adopt.md](adopt.md).
 
 Prefer `docs/business-rules/` (or an existing domain-rules path discovered by `adopt`). Briefs may **add** rules cited by `CLM-*`; they must not silently replace contradicted rules — ask first.
 
+## User stories (business flows)
+
+Prefer `docs/user-stories/` (or an existing use-case / user-story tree discovered by `adopt`). One file per `US-*`; flows use `US-*-F*`. Stories are **product-wide SHARED business-logic SoT** — not owned by a single surface/service; all surfaces consume the same files. Mid-flight: `story extract` derives stories from implemented features. Task prompts must cite related stories and check flow implementation status. Full rules: [user-stories.md](user-stories.md).
+
 ## Gitignore
 
 Ensure:
@@ -244,3 +263,5 @@ agent-prompts/
 ```
 
 Keep existing `bolt-prompts/` ignore entries if present.
+
+Optional companion output from Promptize (product repo, not this skill package): `docs/promptize-prompts/{TASK-ID}.md` — usually **committed** as durable engineering specs (unlike gitignored `agent-prompts/`). See README § Promptize companion.

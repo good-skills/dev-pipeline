@@ -59,6 +59,10 @@ User descriptions of what the phase should deliver are **documentation inputs**.
 - Repeats → no doc churn
 - Hard ban on ID renumbering and disruption of in-flight/done tasks or phase switching
 
+## User stories (`story`)
+
+Product-wide journeys live under `docs/user-stories/` (`US-*` + flows) and are indexed in **SHARED for all surfaces** — not owned by a single service or phase. Follow [user-stories.md](user-stories.md). Phases **link** stories; they do not own a parallel story tree. Mid-flight: `story extract` harvests journeys from implemented features into that shared spine. Task prompts from any phase/surface must cite related stories and check flow coverage.
+
 ## Switching phases (`phase switch PH-XX`)
 
 **Allowed always** when target exists. Procedure:
@@ -105,7 +109,8 @@ Rules for agents (encode in task prompts):
 | Role | Skill / action |
 |------|----------------|
 | Planner / tracker | `/dev-pipeline` (this skill) |
-| Implementer | Receives `agent-prompts/*.md`; may `/commit` |
+| Spec deepener (optional) | `/promptize` after `next`, or `next --promptize` |
+| Implementer | Receives `agent-prompts/*.md` (+ optional `docs/promptize-prompts/{TASK-ID}.md`); may `/commit` |
 | Reviewer | `/review-task` → next or rework prompt |
 
-Do not require the same chat session for all roles. Shared SoT (`SHARED.md`) keeps FE/BE/service agents aligned without sharing chat history.
+Do not require the same chat session for all roles. Shared SoT (`SHARED.md`) keeps FE/BE/service agents aligned without sharing chat history. Promptize does not replace phase/story/backlog tracking.

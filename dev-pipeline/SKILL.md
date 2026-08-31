@@ -4,16 +4,19 @@ description: >-
   Runs a phase-based product development tracking pipeline for AI-agent
   workflows: pre-prod docs, adopt mid-flight projects from existing docs,
   phase briefs that update business logic and backlog from user prose with
-  claim deduplication, epics/features/tasks with stable IDs, phase switching
-  without breaking changes, product-wide shared source of truth for contracts
-  across surfaces/services (frontend→backend and new services), surface
-  registration, and self-contained task prompt handoffs. Use when the user
-  starts with /dev-pipeline, asks to init or adopt a product backlog pipeline,
-  brief a phase, create or switch phases, register a new surface/service,
-  refresh shared contracts, emit the next agent task prompt, or track
-  epic/feature status across multi-agent development.
+  claim deduplication, product-wide SHARED user stories (create or extract from
+  implemented features) with per-flow coverage checks on task handoffs,
+  epics/features/tasks with stable IDs, phase switching without breaking
+  changes, product-wide shared source of truth for contracts across
+  surfaces/services (frontend→backend and new services), surface registration,
+  and self-contained task prompt handoffs. Use when the user starts with
+  /dev-pipeline, asks to init or adopt a product backlog pipeline, brief a
+  phase, create or extract user stories, create or switch phases, register a
+  new surface/service, refresh shared contracts, emit the next agent task
+  prompt, optionally deepen a handoff with Promptize, or track epic/feature
+  status across multi-agent development.
 disable-model-invocation: true
-version: 1.3.0
+version: 1.7.0
 ---
 
 # Dev Pipeline
@@ -22,7 +25,7 @@ When the user message begins with `/dev-pipeline`, this skill is attached, or th
 
 **Purpose:** Persist product evolution as token-efficient, ID-linked docs so sequential or parallel agents can continue work without losing business-logic integrity or product identity. Emits self-contained task prompts for another agent; does **not** implement product code unless the user also asks.
 
-**Companions:** `/commit` (commit skill) after implementation; `/review-task` (review-task skill) after a task lands.
+**Companions:** `/commit` (commit skill) after implementation; `/review-task` (review-task skill) after a task lands; `/promptize` (Promptize skill) for **optional deep engineering specs** — not a substitute for pipeline tracking (see Design decision 11).
 
 ## Design decisions
 
@@ -34,7 +37,9 @@ When the user message begins with `/dev-pipeline`, this skill is attached, or th
 6. **Reuse existing docs** — if the repo already has `docs/epics/`, `ROADMAP.md`, etc., **extend** them; do not duplicate parallel trees without cause.
 7. **Adopt mid-flight** — for repos already in development with a docs tree, `adopt` reads that tree, records current state with evidence tags, and overlays the pipeline without clobbering existing docs.
 8. **Phase briefs with dedup** — user prose about a phase is documentation input; absorb only **new** claims into business rules/backlog; repeats must not rewrite docs; never disturb IDs or in-flight tasks.
-9. **Shared SoT for all surfaces** — phases plus `docs/dev-pipeline/SHARED.md` are the **whole source of truth** for contracts, entities, and absorbed product rules when adding a backend during/after frontend or any new service; never fork a parallel contract spine per surface.
+9. **User stories as product-wide SHARED SoT** — durable `US-*` files under `docs/user-stories/`; indexed in `SHARED.md` for **all** surfaces; **not** owned by a single service/phase. Each story holds business logic and ordered **flows**; task prompts must cite related stories and check flow coverage. Mid-flight: `story extract` harvests journeys from implemented features into that shared spine.
+10. **Shared SoT for all surfaces** — phases plus `docs/dev-pipeline/SHARED.md` are the **whole source of truth** for contracts, entities, user stories, and absorbed product rules when adding a backend during/after frontend or any new service; never fork a parallel contract or story spine per surface.
+11. **Promptize is a companion, not the tracker** — `/dev-pipeline` owns product identity, phases, briefs, stories, backlog, and compact `agent-prompts/` handoffs. `/promptize` owns **one-off or deep** repository-aware engineering specs (inspect → structured Promptize body → optional `--execute`). Use Promptize **outside** the queue for ad-hoc work, or **after** `next`/`task` (or with `--promptize`) when a backlog task needs a fuller engineering spec. Never replace `brief` / `story` / `backlog` / `adopt` with Promptize.
 
 ## Activation
 
@@ -43,6 +48,8 @@ When the user message begins with `/dev-pipeline`, this skill is attached, or th
 | `/dev-pipeline init [name]` | Bootstrap layout + product identity docs (greenfield) |
 | `/dev-pipeline adopt` | Attach pipeline to an **existing** documented project (see [adopt.md](adopt.md)) |
 | `/dev-pipeline brief [PH-ID] …` | Ingest user phase descriptions → docs/backlog with claim dedup (see [briefing.md](briefing.md)) |
+| `/dev-pipeline story …` / `/dev-pipeline stories` | Create/refine product user stories (`US-*`) + flows; coverage status (see [user-stories.md](user-stories.md)) |
+| `/dev-pipeline story extract` | Harvest `US-*` from implemented/shipped features (mid-flight) into SHARED story spine |
 | `/dev-pipeline backlog` / `/dev-pipeline plan` | Inspect product → create/update backlog (epics/features) |
 | `/dev-pipeline phase new <slug>` | Create a phase; optionally set active; trailing prose → first brief |
 | `/dev-pipeline phase switch <PH-ID>` | Activate another phase without breaking prior work |
@@ -53,7 +60,7 @@ When the user message begins with `/dev-pipeline`, this skill is attached, or th
 | `/dev-pipeline shared` / `/dev-pipeline shared status` | Show product-wide shared SoT (`SHARED.md`) |
 | `/dev-pipeline shared refresh` | Additive rebuild of shared contract index from docs/phases |
 | `/dev-pipeline surface new <slug>` | Register a new surface/service that inherits shared SoT |
-| Natural language: “dev pipeline”, «پایپلاین توسعه», «رهگیری فاز», «adopt از روی docs», «درباره این فاز بگو», «brief فاز», «سرویس جدید», «شروع بک‌اند», «shared source of truth» | Same as matching subcommand intent |
+| Natural language: “dev pipeline”, «پایپلاین توسعه», «رهگیری فاز», «adopt از روی docs», «درباره این فاز بگو», «brief فاز», «یوزر استوری», «user story», «داستان کاربری», «استخراج استوری», «سرویس جدید», «شروع بک‌اند», «shared source of truth» | Same as matching subcommand intent |
 
 Flags may appear anywhere after `/dev-pipeline`:
 
@@ -63,23 +70,41 @@ Flags may appear anywhere after `/dev-pipeline`:
 | `--suite <dir>` | Epic suite folder under `docs/` (default: discover) |
 | `--docs <dir>` | Docs root for `adopt` (default: discover `docs/`, `documentation/`, …) |
 | `--refresh` | With `adopt`: rebuild adoption snapshot + CONTEXT links only |
-| `--phase PH-XX` | Target phase for `brief` |
+| `--phase PH-XX` | Target phase for `brief` or phase tag for `story` |
 | `--brief-only` | With `brief`: record claims only; skip backlog/rule writes |
+| `--story-only` | With `story`: persist story files + INDEX only; skip backlog/rule/queue writes |
+| `--extract-stories` | With `adopt`: after adopt writes, run one `story extract` pass |
+| `--from-docs-only` | With `story extract`: docs/ADOPTION only; no code-path inference |
+| `--include-partial` | With `story extract`: also harvest `partial` features |
 | `--kind <kind>` | With `surface new`: `frontend` \| `backend` \| `worker` \| `mobile` \| `bff` \| `shared-lib` \| `other` |
 | `--phase-slug <slug>` | With `surface new`: also create a phase for that surface |
+| `--promptize` | With `next` / `task`: also deepen via Promptize skill (see below) |
 | `--dry-run` | Report planned file writes; do not write |
 
 Do not treat ambient coding as this skill unless `/dev-pipeline` or an explicit pipeline ask is present.
 
+## Product prose routing (brief vs story)
+
+| User input | Command | Why |
+|------------|---------|-----|
+| Phase capability, domain rule, “this phase should…” | `brief` | Phase-local claims → `CLAIMS.md` / rules / backlog links |
+| User journey, flow steps, “as a user I…” | `story` | Product-wide `US-*` + flows in SHARED |
+| Epic/feature delivery shape, priorities, deps | `backlog` | Delivery units — link stories, do not duplicate journey text |
+| Mid-flight: harvest from shipped work | `story extract` | Evidence-tagged `US-*` from Built/open features |
+| Deep engineering spec for one change | `/promptize` | Repo inspect → spec — **not** product ingest |
+
+If prose mixes journey + delivery, run `story` first for flow SoT, then `brief` or `backlog` for phase/backlog links.
+
 ## References
 
-- Human user guide (all use cases): [README.md](README.md)
+- Unified inspect: [../shared/inspect.md](../shared/inspect.md)
 - Folder layout, IDs, statuses, templates: [schema.md](schema.md)
 - Phase rules & switching: [phases.md](phases.md)
 - Shared SoT + surfaces (multi-service): [shared.md](shared.md)
 - Task prompt format: [prompt-template.md](prompt-template.md)
 - Mid-flight attach from existing docs: [adopt.md](adopt.md)
 - Phase user briefs + claim dedup: [briefing.md](briefing.md)
+- User stories + flow coverage: [user-stories.md](user-stories.md)
 
 ## Discover project conventions (do not invent)
 
@@ -89,10 +114,11 @@ Look for, in order:
 2. `docs/dev-pipeline/SHARED.md` — product-wide shared SoT (surfaces + authoritative contracts)
 3. `docs/dev-pipeline/ADOPTION.md` — last adopt/refresh snapshot (if present)
 4. Existing `docs/ROADMAP.md`, `docs/ARCHITECTURE.md`, `docs/epics/**`, suite folders like `docs/epics-*/`
-5. `docs/**/TASK-QUEUE.md` or `**/BOLT-TASK-QUEUE.md`
-6. `agent-prompts/` or legacy `bolt-prompts/`
-7. Entity/API docs (`docs/**/Entities/`, `*api-contract*`, `*dto*`) — must be indexed in SHARED when used cross-surface
-8. Alternate docs roots when adopting: `documentation/`, `Documentation/`, `doc/` (see [adopt.md](adopt.md))
+5. `docs/user-stories/` or existing use-case / user-story trees (index in SHARED)
+6. `docs/**/TASK-QUEUE.md` or `**/BOLT-TASK-QUEUE.md`
+7. `agent-prompts/` or legacy `bolt-prompts/`
+8. Entity/API docs (`docs/**/Entities/`, `*api-contract*`, `*dto*`) — must be indexed in SHARED when used cross-surface
+9. Alternate docs roots when adopting: `documentation/`, `Documentation/`, `doc/` (see [adopt.md](adopt.md))
 
 If both legacy and `docs/dev-pipeline/` exist, treat **legacy epic IDs as authoritative**; store phase/queue overlays under `docs/dev-pipeline/` and link out.
 
@@ -104,6 +130,8 @@ If both legacy and `docs/dev-pipeline/` exist, treat **legacy epic IDs as author
 - Do not add dependencies. Do not implement product features in this skill unless the user also requested implementation in the same message.
 - Destructive doc wipes require explicit confirmation.
 - **Briefing:** never renumber IDs; never mutate in-flight/done task rows from repeats; duplicates must not rewrite business-rules/backlog (see [briefing.md](briefing.md)).
+- **User stories:** never renumber `US-*` / flow IDs; duplicates must not rewrite story bodies; never mark a story `implemented` while non-cancelled flows remain open; never fork surface-local story trees; task prompts must cite related stories and flow coverage (see [user-stories.md](user-stories.md)).
+- **Extract:** never invent done flows without evidence; tag Observed / Inferred / Unknown.
 
 ## Workflow (sequential)
 
@@ -113,10 +141,18 @@ Extract subcommand, IDs, flags, and short request remainder.
 
 ### 1. Inspect (task-scoped)
 
-1. Repo root + top-level layout.
-2. Existing docs listed above.
-3. Active phase from `docs/dev-pipeline/PHASES.md` (or ask if missing and command needs it).
-4. `git status` when about to write files.
+Follow [../shared/inspect.md](../shared/inspect.md) — run only slices needed for this subcommand:
+
+| Subcommand | Slices |
+|------------|--------|
+| `init`, `phase *`, `shared`, `status` | docs (minimal), pipeline, git if writing |
+| `adopt` | docs, manifest (index-first), pipeline overlay paths, git if writing |
+| `brief`, `story` (prose) | docs, pipeline |
+| `backlog`, `story extract` | docs, pipeline, **manifest + code skim** |
+| `next`, `task` | pipeline (+ docs links cited by queue row) |
+| `next --promptize` / `task --promptize` | pipeline first; pass handoff to Promptize (see below) |
+
+Reuse **Inspect snapshot** from `ADOPTION.md` when fresh (see [adopt.md](adopt.md)). Do not re-read the full docs tree every subcommand.
 
 ### 2. Branch by subcommand
 
@@ -127,8 +163,9 @@ Extract subcommand, IDs, flags, and short request remainder.
 3. Write or link `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`.
 4. Write `docs/dev-pipeline/PHASES.md` with no active phase or `PH-00` intake.
 5. Write stub `docs/dev-pipeline/SHARED.md` (surfaces from PRODUCT + empty authoritative table, or seed if contract paths already exist).
-6. Ensure `.gitignore` contains `agent-prompts/` (and keep `bolt-prompts/` if already ignored).
-7. Stop with paths created + next suggested command (`backlog`, `phase new`, or `surface new`).
+6. Create stub `docs/user-stories/README.md` + `INDEX.md` + empty `intake/` (see [user-stories.md](user-stories.md)); index the path in SHARED when seeding.
+7. Ensure `.gitignore` contains `agent-prompts/` (and keep `bolt-prompts/` if already ignored).
+8. Stop with paths created + next suggested command (`backlog`, `phase new`, `story`, or `surface new`).
 
 Use `init` for greenfield. If the repo already has a substantial docs tree, prefer **`adopt`**.
 
@@ -138,9 +175,10 @@ Attach the pipeline to a mid-flight project by reading its docs folder and recor
 
 1. Follow [adopt.md](adopt.md) fully (discover docs root → inventory → evidence-tagged synthesis → additive writes).
 2. Write `docs/dev-pipeline/ADOPTION.md` (source map, built vs open, authoritative paths, unknowns).
-3. Create-if-missing only: `PRODUCT.md` / `ARCHITECTURE.md` / `ROADMAP.md` stubs or links; `PHASES.md` + `PH-00-intake` with seeded `CONTEXT.md`; `SHARED.md` seeded from ADOPTION authoritative paths + Observed surfaces.
+3. Create-if-missing only: `PRODUCT.md` / `ARCHITECTURE.md` / `ROADMAP.md` stubs or links; `PHASES.md` + `PH-00-intake` with seeded `CONTEXT.md`; `SHARED.md` seeded from ADOPTION authoritative paths + Observed surfaces (include user-stories path for **all** surfaces).
 4. Do **not** invent stack/APIs/features; do **not** emit task prompts; do **not** overwrite contentful existing docs.
-5. Stop with adoption report + next suggested command (`backlog`, `phase new`, `surface new`, or `status`).
+5. If `--extract-stories`: run **one** [user-stories.md](user-stories.md) `story extract` pass (product-wide SHARED stories from implemented features).
+6. Stop with adoption report + next suggested command (`story extract` if stories thin, `backlog`, `phase new`, `surface new`, or `status`).
 
 Aliases: `import`, `from-docs`. Natural language: «از روی مستندات وصل کن», «adopt».
 
@@ -186,13 +224,44 @@ Ingest user descriptions of phase capabilities as documentation; update business
 5. Do not emit `agent-prompts/` during `brief`.
 6. Stop with classification table + paths touched + any contradictions needing user input.
 
+#### `story` / `user-story` / `stories` / `us`
+
+Ingest user journeys as **durable product-wide SHARED business-flow SoT**; one file per story under `docs/user-stories/` (not owned by a single surface/service).
+
+1. Follow [user-stories.md](user-stories.md) fully.
+2. **Prose mode** (`story <prose>`): classify → `intake/STORY-*` → create/extend `US-*.md` + flows → optional business-rules/backlog links; `origin: user`.
+3. **Extract mode** (`story extract` / `stories extract` / `story harvest`): harvest journeys from implemented/shipped features (ADOPTION Built vs open, done features, existing journey docs) into `US-*` with evidence tags; `origin: extracted`; index SHARED for **all** surfaces.
+4. `stories` / `story status` with no prose: report coverage (open vs done flows) + confirm SHARED listing.
+5. **Duplicates:** INDEX note only — do not rewrite story bodies.
+6. **Never** renumber `US-*`/flow IDs, disturb in-flight tasks, switch phases, or fork surface-local story trees.
+7. Do not emit `agent-prompts/` during `story` / `story extract`.
+8. Stop with classification/coverage table + paths touched + open-flow gaps.
+
 #### `next` / `task`
 
 1. Resolve active phase + queue.
-2. Pick highest-priority **ready** item (deps satisfied, not blocked).
-3. Write one self-contained prompt via [prompt-template.md](prompt-template.md) to `agent-prompts/{TASK-ID}.md`.
-4. Set queue row to `ready` or `in_progress` as appropriate.
-5. Tell the user to hand that file to the implementing agent; mention `/commit` after work and `/review-task` after commit/push.
+2. Pick highest-priority **ready** item (deps satisfied, not blocked) — or the Feature/Task ID if forced.
+3. Resolve related `US-*` stories (feature Links, INDEX, queue notes); follow [user-stories.md](user-stories.md) task emission rules — cite stories and **flow coverage** (implemented vs open).
+4. Write one self-contained **pipeline** handoff via [prompt-template.md](prompt-template.md) to `agent-prompts/{TASK-ID}.md`.
+5. Set queue row to `ready` or `in_progress` as appropriate.
+6. Tell the user to hand that file to the implementing agent; mention `/commit` after work and `/review-task` after commit/push.
+7. **Optional deepen (`--promptize` or user asks to promptize this task):**
+   - Do **not** skip step 4 — the pipeline handoff (IDs, SHARED, US-*, queue) remains authoritative for product tracking.
+   - Activate **Promptize** with handoff path + short seed: `/promptize --save-to-file docs/promptize-prompts/{TASK-ID}.md …` (create dir if missing). Promptize reads `agent-prompts/{TASK-ID}.md` first ([shared inspect pipeline-handoff slice](../shared/inspect.md)) — **do not** duplicate full repo inspect.
+   - Link saved spec path from handoff **Optional: deepen with Promptize**.
+   - Default Promptize mode: **prompt-only** + **compact** tier. Use `--execute` only if user explicitly wants implementation in the same turn.
+   - Promptize must **not** invent backlog IDs or contradict SHARED / US-* flows.
+8. Without `--promptize`: still mention that complex/ambiguous tasks may be deepened later with `/promptize` (see companions).
+
+#### When to use Promptize vs this skill (routing)
+
+| Need | Use |
+|------|-----|
+| Track product, phases, briefs, stories, backlog, emit queue handoff | `/dev-pipeline …` only |
+| Deepen a **queued** task into a full engineering spec (inspect repo, AC, impact) | `/dev-pipeline next` then `/promptize …`, or `next --promptize` / `task … --promptize` |
+| Ad-hoc fix / spike **not** on the pipeline queue | `/promptize` alone (optionally `--execute`) |
+| Absorb product prose into docs/backlog/stories | `brief` / `story` — **not** Promptize |
+| Implement after a pipeline handoff | Implementer agent (or `/promptize --execute` only if user asked) → `/commit` → `/review-task` |
 
 #### `status`
 
@@ -204,17 +273,18 @@ Default: documentation + prompt handoff only. Implementation belongs to the othe
 
 ## Context loading order (for agents using the docs)
 
-When reading pipeline docs, load **only** what the current task needs, in this order:
+Load **only** what the current task needs — stop when the task is actionable. Do not read all 10 layers for every task.
 
 1. `docs/PRODUCT.md` (identity — short)
-2. `docs/dev-pipeline/SHARED.md` if present (product-wide contract spine + surfaces — especially when adding/continuing a service)
-3. `docs/dev-pipeline/ADOPTION.md` if present (source map — especially after mid-flight adopt)
+2. `docs/dev-pipeline/SHARED.md` if present (surfaces + contracts — especially cross-surface work)
+3. `docs/dev-pipeline/ADOPTION.md` if present (source map + inspect snapshot)
 4. `docs/dev-pipeline/PHASES.md` → active phase README
-5. Active phase `briefs/CLAIMS.md` when interpreting domain rules for that phase
-6. Active `TASK-QUEUE.md` row for the task
-7. Parent epic file section for the feature
-8. Linked contract/entity/business-rule paths cited by that feature **and** by SHARED
-9. Skip unrelated suites
+5. Active phase `briefs/CLAIMS.md` when domain rules for that phase matter
+6. `docs/user-stories/INDEX.md` + linked `US-*.md` when user-facing (required if feature Links cite stories)
+7. Active `TASK-QUEUE.md` row for the task
+8. Parent epic section for the feature
+9. Linked contract/entity/business-rule/**user-story** paths from feature + SHARED
+10. Skip unrelated suites
 
 ## Out of scope for this skill
 
@@ -223,6 +293,10 @@ When reading pipeline docs, load **only** what the current task needs, in this o
 - Rewriting legacy epic IDs
 - Opening PRs / force-push / destructive git
 - Replacing Promptize for one-off engineering specs (use `/promptize` for that)
+- Running Promptize instead of `brief` / `story` / `backlog` / `adopt` / phase ops
+- Embedding Promptize’s full template as the default `agent-prompts/` body (pipeline template stays default; Promptize is optional deepen)
 - Using `adopt` to invent a full backlog without doc evidence (use `backlog` after adoption with user confirmation)
 - Using `brief` to reshuffle or renumber the entire backlog (additive deltas + explicit cancel/supersede only)
+- Using `story` to delete or renumber stories/flows, or to mark a story `implemented` while flows remain open
+- Forking surface-local user-story trees or treating stories as owned by one service
 - Forking a second API/DTO/entity spine for a new surface instead of extending `SHARED.md`

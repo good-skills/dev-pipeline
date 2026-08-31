@@ -45,13 +45,13 @@ For each Acceptance criterion in the task prompt:
 - Validation: `{command}` → exit {code}
 
 ### Next step
-- PASS → next prompt: `agent-prompts/TASK-…md`
+- PASS → run `/dev-pipeline next` (or `/dev-pipeline task <FEATURE-ID>`)
 - FAIL/PARTIAL → rework: `agent-prompts/TASK-…-R{N}.md`
 ```
 
 ## Rework prompt skeleton
 
-Minimum (align with `dev-pipeline` prompt-template when that skill is present):
+Minimum (align with `dev-pipeline` [prompt-template.md](../dev-pipeline/prompt-template.md)):
 
 ```markdown
 # {TASK_ID}-R{N} — rework: {short title}
@@ -77,9 +77,6 @@ Minimum (align with `dev-pipeline` prompt-template when that skill is present):
 - Run: `{repo command if any}`
 ```
 
-## Next-task prompt rules
+## Next task (not this skill)
 
-- Self-contained; no reliance on prior chat.
-- Include Goal, evidence paths, Required changes, Out of scope, Contracts, AC, DoD, Validation, Handoff.
-- One task only; match queue Feature / Task IDs.
-- Prefer `agent-prompts/` over `bolt-prompts/` for new writes.
+On PASS, **do not** emit the next task prompt here. User runs `/dev-pipeline next` — single source of truth for queue selection and handoff sections.

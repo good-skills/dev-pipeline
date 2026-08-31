@@ -21,6 +21,7 @@ Read from `SKILL.md` when running `/dev-pipeline adopt` (aliases: `import`, `fro
 | `--dry-run` | Report planned reads/writes; write nothing |
 | `--refresh` | Rebuild `ADOPTION.md` + refresh `CONTEXT.md` links only; do not recreate PRODUCT/ROADMAP if they exist |
 | `--set-active` | After creating intake/`PH-00` or first phase, mark it active |
+| `--extract-stories` | After adopt writes, run one `story extract` pass (product-wide SHARED stories from implemented features) |
 
 ## Docs-root discovery (do not invent)
 
@@ -48,11 +49,12 @@ List files under the docs root (and one level of common subfolders). Categorize 
 | Identity | `PRODUCT*`, `VISION*`, `ABOUT*`, README product sections |
 | Architecture | `ARCHITECTURE*`, `DESIGN*`, `C4*`, `SYSTEM*` |
 | Roadmap / status | `ROADMAP*`, `STATUS*`, `CHANGELOG*`, `TODO*`, milestone docs |
-| Epics / features | `epics/**`, `features/**`, `backlog/**`, user-story trees |
+| Epics / features | `epics/**`, `features/**`, `backlog/**` |
+| User stories / flows | `user-stories/`, `use-cases/`, `user-stories/**`, journey docs — map into SHARED for **all** surfaces; do not treat as owned by one service; prefer overlay `US-*` via `story` / `story extract` rather than rewriting bodies |
 | Domain / entities | `Entities/`, `domain/`, `models/`, glossary |
 | API / contracts | `*api*`, `*dto*`, `*contract*`, OpenAPI/Swagger links |
 | Decisions | `decisions/`, `adr/`, `ADR-*` |
-| Business rules | `business-rules/`, `invariants*`, domain rules |
+| Business rules | `business-rules/`, `invariants*`, domain rules (peer to user stories) |
 | Other | Everything else — note path only unless clearly relevant |
 
 Also skim **repo-root** `README.md` for product one-liner and links into docs (Observed).
@@ -118,6 +120,17 @@ With `--refresh`: update `ADOPTION.md` + additive notes on active (or intake) `C
 **Docs root:** `{path}` (discovery: {rule})
 **Mode:** adopt | refresh
 
+## Inspect snapshot
+
+**snapshot_at:** {ISO-8601 timestamp}
+**docs_root:** `{path}`
+**manifest_roots:** `{paths}` — Observed
+**validation_commands:** `{test}` | `{lint}` | … — from manifests/CI
+**pipeline_paths:** `PHASES.md`, `SHARED.md`, … — created | existed
+**high_signal_docs:** table rows or path list (indexes, epic README, contract paths) — not full bodies
+
+Agents: reuse this block until `adopt --refresh` or a subcommand updates inventory (see [../shared/inspect.md](../shared/inspect.md)).
+
 ## Source map
 
 | Category | Path | Role (one line) | Evidence |
@@ -143,8 +156,9 @@ With `--refresh`: update `ADOPTION.md` + additive notes on active (or intake) `C
 - API/DTO: `…`
 - Decisions: `…`
 - Business rules: `…`
+- User stories / flows: `docs/user-stories/` (product-wide SHARED — all surfaces)
 
-Copy these into `docs/dev-pipeline/SHARED.md` Authoritative shared paths (create-if-missing). Phase freezes must point at the same spine.
+Copy these into `docs/dev-pipeline/SHARED.md` Authoritative shared paths (create-if-missing). Phase freezes must point at the same spine. User stories are **not** owned by a single surface.
 
 ## Pipeline overlays created/linked
 
@@ -158,16 +172,17 @@ Copy these into `docs/dev-pipeline/SHARED.md` Authoritative shared paths (create
 
 ## Next commands
 
-1. `/dev-pipeline backlog` — confirm Inferred backlog against evidence
-2. `/dev-pipeline shared` — confirm shared SoT spine
-3. `/dev-pipeline phase new <slug> --set-active` — when ready to leave intake
-4. `/dev-pipeline surface new <slug>` — when adding backend/another service
-5. `/dev-pipeline status`
+1. `/dev-pipeline story extract` — harvest product-wide `US-*` from Built vs open / done features (skip if INDEX already rich)
+2. `/dev-pipeline backlog` — confirm Inferred backlog against evidence
+3. `/dev-pipeline shared` — confirm shared SoT spine (including user-stories for all surfaces)
+4. `/dev-pipeline phase new <slug> --set-active` — when ready to leave intake
+5. `/dev-pipeline surface new <slug>` — when adding backend/another service
+6. `/dev-pipeline status`
 ```
 
 ## Phase `CONTEXT.md` seeding from adopt
 
-Copy **paths only** (+ short notes) from the Source map / Authoritative paths into intake or active `CONTEXT.md` tables **and** into `SHARED.md`. Do not paste large doc bodies.
+Copy **paths only** (+ short notes) from the Source map / Authoritative paths into intake or active `CONTEXT.md` tables **and** into `SHARED.md`. Do not paste large doc bodies. Link `docs/user-stories/` as SHARED — do not create phase-owned story copies.
 
 Add:
 
@@ -188,6 +203,14 @@ If docs clearly list epics/features/milestones:
 
 Full backlog shaping remains `/dev-pipeline backlog`.
 
+## Optional story extract
+
+When Built vs open (or done features) show shipped user-facing capabilities and `docs/user-stories/INDEX.md` is missing/thin:
+
+1. Suggest `/dev-pipeline story extract` in the completion report.
+2. If `--extract-stories` was passed: after adopt writes succeed, run **one** [user-stories.md](user-stories.md) extract pass in the same turn.
+3. Extracted stories are product-wide SHARED (`origin: extracted`); never place them under a surface-only folder.
+
 ## Completion report (to user)
 
-Emit a short table: docs root, files written vs skipped, key Observed facts, Unknown blockers, suggested next command. If `--dry-run`, list planned writes only.
+Emit a short table: docs root, files written vs skipped, key Observed facts, Unknown blockers, suggested next command (`story extract` when applicable). If `--dry-run`, list planned writes only.
