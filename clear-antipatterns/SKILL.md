@@ -4,7 +4,7 @@ description: >-
   Production-grade conservative TS anti-pattern remediation.
   /clear-antipatterns [scope] [pattern]. Candidates require contextual confirmation.
 disable-model-invocation: true
-version: 2.2.1
+version: 2.2.2
 ---
 
 # Clear Anti-Patterns
@@ -19,7 +19,9 @@ version: 2.2.1
 |------|----------|
 | `[scope] [pattern]` | Path (dir or `.ts`/`.tsx`) + optional pattern (`1`–`10`, name) |
 | `[pattern]` only | Auto scope when arg is not a path |
-| (none) | Auto scope; patterns **1–10 sequentially** — skip auto-scan for #2, #5 (manual-only) |
+| (none) | Auto scope; patterns **1–10 sequentially** — #2, #5 manual-only (no auto-scan) |
+
+Pattern **8** has sub-candidates: **8a** hard-coded config, **8b** potential secret — still pattern `8` for invocation.
 
 **Path** = `/`, `.ts`/`.tsx`, or `.` / `..`. Else → pattern.
 
@@ -32,9 +34,15 @@ version: 2.2.1
 3. Root `tsconfig` only when no package-specific config applies
 4. Do not use `tsconfig.build.json` or tooling-only configs as source scope without evidence
 
-**Monorepo:** identify root vs package `tsconfig`, references, workspace deps. For exports, unused code, public types, shared utils, cross-package imports — check usage **outside** current package. In-package non-reference ≠ dead code (especially #3 Lava Flow).
+**Monorepo:** identify root vs package `tsconfig`, references, workspace deps. For exports, unused code, public types, shared utils, cross-package imports — check usage **outside** current package.
+
+**Public/library packages:** exports are externally consumable unless repo evidence proves the API is private/internal. In-package non-reference ≠ dead code (#3 Lava Flow).
 
 **Scope fallback:** user path → package `tsconfig` dir → `src/`/`lib/`/`app/`/`packages/*/src` → repo root. File scope = that file only.
+
+## Inspection vs modification scope
+
+**Inspection scope** may be broader than **modification scope**. Read wider context (e.g. cross-package usage) when needed for correctness. **Modification touch set** stays minimal — only paths required by confirmed findings.
 
 ## Finding lifecycle
 
@@ -46,139 +54,121 @@ candidate → inspected → confirmed ──→ rejected
 
 | Status | Meaning |
 |--------|---------|
-| `candidate` | Detection output only; unproven — **no risk classification** |
-| `inspected` | Context read; remediation decision not final |
-| `confirmed` | Anti-pattern verified — risk assigned here |
-| `rejected` | False positive or intentional code |
+| `candidate` | Detection output only — **no risk classification** |
+| `inspected` | Context read; decision not final |
+| `confirmed` | Verified — risk assigned here |
+| `rejected` | False positive or intentional |
 | `fixed` | Remediated and verified |
-| `accepted` | Intentionally retained — **reason required** |
-| `blocked` | Cannot safely execute — **blocker/evidence required** |
+| `accepted` | Retained — **reason required** |
+| `blocked` | Cannot safely execute — **blocker required** |
 
-**Confirmed finding metadata (required):** Pattern, File, Location, Evidence, Risk, Decision, Action, Verification.
+**Confirmed metadata:** Pattern, File, Location, Evidence, Risk, Decision, Action, Verification.
 
 ## Evidence
 
-| Status | Use |
-|--------|-----|
-| **Observed** | Direct code/manifest evidence |
-| **Inferred** | Label required |
-| **Assumption** | Label required |
-| **Unknown** | Do not fabricate |
-
-On conflict: repo evidence → preserve behavior → reassess/escalate.
+Observed / Inferred / Assumption / Unknown — on conflict: repo evidence → preserve behavior → reassess.
 
 ## Secrets & redaction
 
-Never echo/`cat`/print literal credentials, tokens, passwords, API keys, or secrets in findings, plans, remediation files, summaries, patches, logs, or examples. Represent as `<REDACTED>` even when present in source.
+Never echo/`cat`/print secrets in output, reports, remediation files, patches, or logs. Use `<REDACTED>`.
 
-## Risk (confirmed findings only)
+## Risk (confirmed only)
 
-**Candidates have no risk.** Risk is assigned only after contextual inspection confirms the finding.
+When uncertain → **choose higher**.
 
-When uncertain between two levels → **choose higher**.
+| Risk | Execution |
+|------|-----------|
+| **low** | Auto-fix when confirmed and behavior-preserving |
+| **medium** | Execute only when evidence + targeted validation demonstrate behavior preservation |
+| **high** | **MUST NOT execute autonomously** — document, propose fix, **stop**, wait for approval |
 
-| Risk | Criteria | Execution |
-|------|----------|-----------|
-| **low** | Mechanical, local, behavior-preserving highly likely | Auto-fix when confirmed |
-| **medium** | Contextual refactor; limited coupling; internal types with contained blast radius; local abstraction swap; needs stronger test/type validation | Execute only when evidence + targeted validation make behavior preservation reasonably demonstrable |
-| **high** | Public contract, security, behavior-sensitive, large blast radius | **MUST NOT execute autonomously** — document, propose minimal fix, **stop**, wait for explicit user approval |
-
-**High-risk rule:** inspect → explain risk → propose fix → **stop before code change** → wait for approval. Never assume confirmation.
-
-**Low-benefit confirmed → `accepted`** when benefit does not justify change. Assess benefit only against: duplication reduction, clarity, correctness, maintainability, consistency with project conventions, risk reduction. Do not accept solely because the agent avoids touching code.
+Low-benefit confirmed → `accepted` (duplication, clarity, correctness, maintainability, conventions, risk reduction — not agent avoidance).
 
 ## Workflow
 
 1. **Resolve** — scope, pattern, tsconfig, package boundaries.
-2. **Scan** — load detection.md; discovery → **candidates only** (#2, #5: not auto-scanned).
+2. **Scan** — canonical file list from detection.md → **candidates only** (#2, #5: no auto-scan).
 3. **Classify** — dedupe; assign pattern (no risk).
-4. **Inspect** — bounded context; confirm/reject; assign risk; judge benefit.
-5. **Plan** — minimal fix; remediation file if tracking threshold met.
-6. **Protect** — git baseline (pre-execution snapshot).
-7. **Execute** — per risk policy; confirmed + justified only.
-8. **Verify** — narrowest repo-defined validation (see Validation failure).
-9. **Re-scan** — **required** — affected pattern(s) + touch set first; expand only if remediation changed exports, shared types, package boundaries, or generated artifacts.
-10. **Review** — scoped diff + semantic impact + untracked files.
-11. **Report** — structured format (below).
+4. **Inspect** — confirm/reject; assign risk; judge benefit (may read beyond touch set).
+5. **Plan** — minimal modification touch set; remediation file if threshold met.
+6. **Protect** — **pre-execution working tree baseline** (before any edit).
+7. **Execute** — per risk policy.
+8. **Verify** — narrowest repo-defined validation.
+9. **Re-scan** — affected pattern(s) + original modification scope first; expand only if changes affect exports, public/shared types, package boundaries, generated artifacts, or dependency relationships.
+10. **Review** — scoped diff + semantic impact + untracked files vs baseline.
+11. **Report** — structured format.
 
 ### Pattern-by-pattern
 
-When all patterns active: process **sequentially** per pattern (`scan → confirm → fix → verify → re-scan`). Skip auto-scan for **#2 Golden Hammer** and **#5 Premature Opt** — manual review only; never autonomous remediation or fake regex detection.
+Sequential per pattern when all active. **#2, #5 manual-only:** no automatic candidate scan, no autonomous remediation — report only when evidence appears during contextual inspection or user explicitly requests.
 
 ### Remediation file
 
-`>15 confirmed` OR `>10 files` → tracking file when repo permits (`docs/antipattern-remediation.md`). Threshold = **tracking**, not broad-refactor permission. Remediation file is **metadata** — do not analyze or modify it as a finding target.
+`>15 confirmed` OR `>10 files` → tracking when repo permits. **Metadata only** — never analyze, scan, or treat as anti-pattern target.
 
-## Git baseline (before Execute)
+## Git baseline (before any edit)
 
-Record **pre-execution baseline** (not just `HEAD`):
+**Pre-execution working tree** is the comparison baseline — not `HEAD` alone.
 
-```text
-HEAD, branch, status -sb
-unstaged/staged --stat + scoped diff per touch path
-planned touch set
-```
+Record before first edit: `HEAD`, branch, `status -sb`, unstaged/staged `--stat`, scoped diff per touch path, planned touch set.
 
-Protect staged, unstaged, pre-existing untracked. Never reset/revert/discard/overwrite user changes. Dirty path → scoped diff before edit.
+Protect staged, unstaged, pre-existing untracked. Never reset/revert/discard/overwrite user changes.
 
-**Diff attribution:** compare post-change state against **pre-execution baseline**, not only `HEAD` (baseline includes user dirty state).
+**Diff attribution:** post-change vs **pre-execution baseline** (includes user dirty state).
 
 ## Change budget
 
-Touch set = minimal paths for confirmed findings. Stop and reassess if scope grows. No opportunistic refactors.
+Modification touch set = minimal paths for confirmed findings. Stop if scope grows. No opportunistic refactors.
+
+## Dependencies
+
+Do not add, remove, upgrade, downgrade, replace, or reconfigure dependencies unless explicitly required by a confirmed finding and authorized by the task.
+
+## Tests
+
+Do not modify, weaken, delete, skip, or downgrade tests solely to make validation pass. Test changes allowed only when remediation intentionally changes a covered contract or a focused regression test validates the fix. Never remove an assertion to accommodate a failing implementation.
 
 ## Validation
 
-Narrowest **existing** repo command covering touch set. **Only tooling already in the repository/toolchain** — do not install or invoke globally unavailable tools. No invented scripts. Report **validation limited** when no repo command exists.
+Narrowest **existing** repo command for touch set. Only tooling **already in repository/toolchain**. Report **validation limited** when none exists.
 
 ### Validation failure
 
-1. Caused by remediation? → small safe repair, else `blocked`.
-2. Never revert/overwrite pre-existing user changes or fix unrelated failures.
-3. Pre-existing → preserve; report as pre-existing.
+Remediation-caused → small safe repair or `blocked`. Never fix unrelated failures or overwrite user changes. Pre-existing → preserve; report.
 
 ## Behavior-sensitive & TSX
 
-Usually medium/high. Before TSX extraction: hook order, closures, state, refs, effects, context, memo, forwarded refs, lifecycle. Mechanical JSX extraction **forbidden**.
+Usually medium/high. TSX: hook order, closures, state, refs, effects, context, memo, forwarded refs, lifecycle. No mechanical JSX extraction.
 
 ## Diff & semantic review (required)
 
 ```bash
-git status -sb
+git status --short
 git diff --stat
 git diff -- <touch-set paths>
 git diff --cached -- <touch-set paths>
-git ls-files --others --exclude-standard   # review new untracked explicitly
+git ls-files --others --exclude-standard
 ```
 
-Compare to **pre-execution baseline**. Full diff only on ambiguity. Review newly created untracked files (e.g. remediation metadata) explicitly — `git diff` does not show them.
-
-**Semantic review** (behavior-sensitive): call sites, exports/imports, public API, types, async/control-flow, closure/state.
+Compare to **pre-execution baseline**. Review new untracked files explicitly (`git diff` omits them). Semantic review for behavior-sensitive changes: call sites, exports, public API, types, async/control-flow.
 
 ## Definition of Done
 
-- All confirmed → `fixed`, `accepted`, or `blocked` (with evidence/reason)
-- Validation + re-scan completed
-- No unrelated files modified; user changes preserved
-- Final diff reviewed against baseline
+All confirmed → `fixed`/`accepted`/`blocked` with evidence; validation + re-scan done; no unrelated edits; user changes preserved; diff reviewed vs baseline.
 
 ## Report format
 
-`## Fixed` · `## Accepted` · `## Rejected` · `## Blocked` · `## Validation` · `## Re-scan` · `## Notes / Assumptions` — pattern + file + reason; no secrets.
+`## Fixed` · `## Accepted` · `## Rejected` · `## Blocked` · `## Validation` · `## Re-scan` · `## Notes / Assumptions`
 
 ## Rules
 
-- `disable-model-invocation: true`; no new deps; preserve behavior.
-- **#2, #5:** manual-only — not auto-scanned; no autonomous remediation.
-- Prefer repo tooling **already available** over grep ([detection.md](detection.md)).
+- `disable-model-invocation: true`; preserve behavior.
+- **#2, #5:** manual-only (see Pattern-by-pattern).
+- Scan via canonical file discovery only ([detection.md](detection.md)).
 
 ## Protected areas
 
-```text
-Protected = standard exclusions + observed repo-specific exclusions.
-```
-
-[detection.md](detection.md) is the **canonical execution rule** for file discovery; repo conventions (tsconfig exclude, `.gitignore`, package layout) determine repo-specific additions. Protect authoritative fixtures/reference data when conventions indicate source-of-truth.
+`standard exclusions + observed repo-specific exclusions`. detection.md = canonical file-discovery rule; repo conventions supply additions.
 
 ## Out of Scope
 
