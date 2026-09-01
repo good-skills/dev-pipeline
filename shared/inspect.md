@@ -72,7 +72,7 @@ When invoked after `/dev-pipeline next --promptize` or when these exist:
 2. `docs/promptize-prompts/{TASK-ID}.md` (existing deepen spec)
 3. Queue row for `{TASK-ID}`
 
-Treat handoff as **authoritative** for: Task/Feature/Epic/Phase IDs, SHARED paths, `US-*` / flow coverage, AC sketch, Out of scope.
+Treat handoff as authoritative for: Task/Feature/Epic/Phase IDs, SHARED paths, `US-*` / flow coverage, AC sketch, Out of scope — **current repo evidence overrides handoff on conflict** ([inspection.md](../promptize/inspection.md) Handoff contract).
 
 **Do not** re-inspect manifest/docs for facts already in the handoff unless verifying a specific gap or the user asked to re-check.
 
@@ -97,7 +97,7 @@ git rev-parse --abbrev-ref HEAD   # review-task
 
 **Commit (token-minimal):** `status -sb` → `--stat` → scoped `git diff -- <paths>`; `git log -3 --format='%s'`; reuse session/task context before opening pipeline queue files.
 
-Record dirty paths; treat unrelated dirty files as **protected**. Note overlap before editing dirty targets.
+Record dirty/staged/untracked paths; treat unrelated changes as **protected**. Note overlap before editing dirty targets. Scoped diff on touch paths. See [policies.md](../promptize/policies.md).
 
 ## Validation commands
 

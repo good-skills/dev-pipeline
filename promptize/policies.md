@@ -1,152 +1,121 @@
 # Promptize Policies
 
-Read this when the task domain involves git/working tree, dependencies, security, database, APIs, UI, non-functionals, impact, or protected/generated areas. Apply only what is relevant; unrelated sections stay out of the generated prompt (or `N/A`).
+Apply only relevant sections. Unrelated → omit or `N/A`.
 
 ## Git / working tree
 
-Before implementation (`--execute` or follow-up execute):
+### Baseline (before implementation)
 
-1. Run `git status` (and note dirty paths).
-2. Never overwrite, revert, reset, or discard pre-existing user changes.
-3. Treat unrelated working-tree changes as **protected state**.
-4. If the task must touch a dirty file, surface the overlap to the user before editing and preserve their intent; do not clobber their edits.
+```bash
+git rev-parse HEAD
+git rev-parse --abbrev-ref HEAD
+git status -sb
+git diff --stat
+git diff --cached --stat
+```
+
+### Protected state
+
+Never overwrite, revert, reset, or discard:
+
+- Unstaged changes
+- **Staged** changes (`git diff --cached`)
+- **Untracked** files (protected unless this task explicitly creates them)
+
+For each planned touch path that is dirty: read `git diff -- <path>` and `git diff --cached -- <path>` to preserve user intent before editing.
+
+Unrelated dirty paths → **protected**; do not include in commit unless user asks.
 
 ## Dependency policy
 
-Before adding a dependency:
+Add a dependency **only when all** are true:
 
-1. Check whether the repository already has an equivalent dependency.
-2. Check whether existing framework/platform APIs can solve the problem.
-3. Prefer existing dependencies.
-4. Add a new dependency only when it materially improves the implementation.
-5. Explain why the dependency is necessary (Engineering Decisions / Constraints).
-6. Do not replace an existing dependency without explicit justification (and user intent when it is an architectural swap).
+1. No suitable existing dependency in repo.
+2. No adequate platform/framework API.
+3. Meaningful reduction in complexity or risk (not marginal).
+4. Compatible with project constraints.
+5. Justified in **Engineering Decisions**.
 
-## Security considerations
+If benefit is marginal → **do not add**. Do not swap dependencies without explicit user intent.
 
-When applicable, inspect and document only **relevant** items:
+## Security (risk analysis)
 
-- Authentication / authorization
-- Input validation
-- Injection risks
-- XSS / CSRF
-- Secrets and credentials
-- File upload handling
-- Path traversal
-- SSRF
-- Sensitive data exposure
-- Dependency vulnerabilities
-- Permission boundaries
+For security-sensitive tasks, analyze — do not just checklist:
 
-Put findings in **Security Considerations**. Confirmation is required before destructive or security-sensitive execution (see SKILL.md Execution Rules).
+- Trust boundaries
+- Attacker-controlled inputs
+- Privileged operations
+- Sensitive data flows
+- Relevant abuse/failure modes
+
+Then document applicable controls (authn/z, validation, injection, XSS/CSRF, secrets, uploads, path traversal, SSRF, permissions, deps).
+
+Confirmation required before destructive or security-sensitive execution.
 
 ## Database / migrations
 
-If the task changes persistent data structures:
+When schema/data changes:
 
-- Identify affected schema/models.
-- Identify the existing migration mechanism (Prisma, Drizzle, Django, Rails, raw SQL, etc.).
-- Follow the repository’s migration conventions.
-- Never modify production data destructively without confirmation.
-- Identify backward compatibility concerns.
-- Identify rollback considerations.
+- Affected schema/models; repo migration mechanism.
+- Follow repo conventions; no destructive production changes without confirmation.
+- **Strategy** when applicable: expand → migrate/backfill → switch reads/writes → contract.
+- Backward compatibility and rollback considerations.
 
-Document under Technical Requirements (and Impact Analysis as needed).
+## Interface compatibility
 
-## API compatibility
+Classify surface changes (use what applies):
 
-Classify API work as one of:
-
-- New API
-- Modified API
-- Breaking API change
-- Internal-only change
-
-When documenting API changes, include as applicable:
-
-- Endpoint
-- HTTP method
-- Request changes
-- Response changes
-- Error behavior
-- Authentication requirements
-- Backward compatibility
+| Surface | Document |
+|---------|----------|
+| HTTP API | New / modified / breaking / internal-only; method, path, request/response, errors, auth |
+| GraphQL | Schema/query/mutation changes, deprecation |
+| RPC / gRPC | Service, method, message compatibility |
+| Events / messages | Topic, payload, ordering, idempotency |
+| CLI | Command, flags, exit codes, output |
+| Webhooks | Payload, signature, retry semantics |
+| Internal interfaces | Module/API between packages |
 
 ## UI / UX
 
-When the task is UI-related, inspect existing:
-
-- Design system / component library
-- Spacing, typography, color conventions
-- Responsive breakpoints
-- Accessibility patterns
-- Loading, empty, and error states
-- Mobile behavior
-
-**Do not invent a new design system if one already exists.** Extend existing components and tokens.
+Inspect existing design system, spacing, a11y, states, responsive behavior. Extend — do not invent a new system.
 
 ## Non-functional requirements
 
-When the request implies them, specify measurable or concrete expectations for:
-
-- Performance
-- Accessibility
-- Security
-- Reliability
-- Scalability
-- Observability
-- Maintainability
-- Localization
-- Compatibility
-
-Example: “optimize API” without a performance target is incomplete — derive a reasonable, evidence-based target or mark Unknown (non-blocking unless execution is unsafe).
+When implied: performance, a11y, security, reliability, scalability, observability, maintainability, i18n, compatibility. Derive measurable targets or mark Unknown.
 
 ## Impact analysis
 
-Identify:
-
-- Directly affected components
-- Indirectly affected components
-- Public APIs
-- Data models
-- Shared utilities
-- Tests
-- Build/deployment implications
-
-Use this to keep scope honest and to populate Out of Scope.
+Direct/indirect components, public APIs, data models, shared utils, tests, build/deploy.
 
 ## Protected areas
 
-Identify files/directories that must not be modified unless explicitly required. Examples:
+Generated/vendor/fixtures/migration history/build artifacts — list under Constraints. Edit source-of-truth, not generated output, unless repo convention requires.
 
-- Generated files
-- Vendor code
-- Reference fixtures
-- Migration history (do not rewrite applied migrations unless that is the repo’s explicit practice)
-- External/reference datasets
-- Build artifacts
+## Acceptance vs Definition of Done
 
-List them under Constraints / Protected Areas in the generated prompt.
+| | Acceptance Criteria | Definition of Done |
+|-|---------------------|-------------------|
+| **Answers** | What the software **must do** (observable behavior) | What **engineering completion** means |
+| **Example** | `POST /login` returns 401 for invalid credentials | Relevant tests pass; no unrelated files changed |
+| **Bad** | "Login works" | — |
 
-## Generated files
+Do not merge into one checklist.
 
-Recognize common generated outputs, e.g.:
+## Conflict resolution
 
-- `dist/`, `build/`, `generated/`
-- `*.generated.ts`
-- `openapi-generated/`
+Priority: (1) explicit user requirements → (2) repo conventions/evidence → (3) inferences → (4) assumptions.
 
-Prefer modifying **source-of-truth** files rather than generated artifacts. Edit generated output only when repository convention requires it (document why).
+**Security and destructive operations** override convenience defaults.
+
+When user request, repo convention, and policy conflict → **surface the conflict**; do not silently pick one unless hierarchy explicitly resolves it (e.g. security blocks unsafe user request).
 
 ## Definition of Done (detail)
 
-Use as the engineering completion bar (behavior belongs in Acceptance Criteria):
-
-- Implementation matches the requested behavior
-- No unrelated files were modified
-- Existing APIs remain compatible unless explicitly changed
-- Formatting/linting passes where configured
-- Relevant tests pass where available
-- No new dependency was introduced without justification
-- No unresolved TODOs remain from this task
-- Pre-existing user working-tree changes were not discarded or overwritten
+- Behavior matches acceptance criteria
+- No unrelated files modified (verified by diff review)
+- APIs/interfaces compatible unless explicitly changed
+- Lint/format pass where configured
+- Relevant tests pass
+- No unjustified dependencies
+- No task TODOs left
+- User working-tree changes preserved

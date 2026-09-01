@@ -1,45 +1,102 @@
 # Promptize inspection
 
-Read [../shared/inspect.md](../shared/inspect.md) for the unified inspect layer. Complete inspection **before** generating the prompt.
+Complete inspection **before** generating the prompt. Shared layer: [../shared/inspect.md](../shared/inspect.md).
 
-## Promptize slices (task-scoped)
+## Inspection budget (global)
 
-Run in order; stop when the task is sufficiently specified:
+Each slice is **bounded**. Do not run open-ended repo exploration.
 
-0. **SESSION-CACHE** — reuse Carry-over; skip Loaded paths ([../shared/context-cache.md](../shared/context-cache.md))
-1. **pipeline-handoff** — if `agent-prompts/TASK-*.md`, `docs/promptize-prompts/TASK-*.md`, or queue row exists
-2. **manifest** — unless handoff already lists stack and validation commands
-3. **code** — affected implementation areas only
-4. **docs** — only paths not already covered by handoff + project instructions if relevant
-5. **git** — when `--execute` or follow-up execute is likely
+**Global stop** — stop all inspection when **all** are true:
 
-Do not inspect unrelated files. Do not duplicate work already authoritative in a pipeline handoff.
+1. Affected implementation area is identified (or honestly marked Unknown).
+2. Relevant conventions and validation path are known (or marked Unknown).
+3. No **blocking** unknown remains.
+4. Planned touch set is plausible.
 
-## Evidence status
+**Escalate** (ask user or widen slice) when:
 
-For each factual claim in Repository Context:
+- Two credible implementations exist with different risk.
+- Handoff conflicts with current repo evidence.
+- Touch set would exceed change budget without user approval.
 
-| Status | Use when |
-|--------|----------|
-| **Observed** | Directly supported by file or command output |
-| **Inferred** | Reasonable but not explicit — must be labeled |
-| **Unknown** | Not found after reasonable task-scoped search |
+**Reasonable search** for Unknown: task keywords → manifest/docs indexes → direct imports/callers of identified files → stop at depth below. Do **not** full call-graph traversal unless security/auth/data-migration requires it.
 
-Never present Inferred as Observed. Ask only **blocking** unknowns (see SKILL.md).
+## Slice order
 
-## Relevant Files pattern
+Run in order; skip when handoff/cache already authoritative:
 
-Every listed file needs role + evidence. Do not list files without a why.
+0. **SESSION-CACHE** — reuse Carry-over; skip Loaded ([../shared/context-cache.md](../shared/context-cache.md))
+1. **pipeline-handoff** — if handoff paths exist
+2. **manifest** — unless handoff lists stack + validation
+3. **code** — affected areas only
+4. **docs** — uncovered governing docs only
+5. **git** — when `--execute` or follow-up execute likely
 
-## Compact vs internal inspect
+## Slice contracts
 
-- **Generated prompt output** uses compact or full format per SKILL.md (default **compact**).
-- **Internal inspect notes** do not need Observed/Inferred tags on every bullet — use tags in the emitted Repository Context section.
+| Slice | Entry | Max depth | Stop when | Escalate when |
+|-------|-------|-----------|-----------|---------------|
+| **manifest** | Root/touched package manifests, lockfiles, CI | Package roots only | PM, runtime, build/test/lint/typecheck commands found | Monorepo; no manifest for touched path |
+| **code** | User path, handoff Required changes, symbol search for task nouns | 1 hop: file → direct imports/callers | Behavior + touch set clear | Multiple modules equally plausible |
+| **docs** | Handoff links, `ARCHITECTURE.md`, epic/US cited in task | Linked sections only | Conventions for affected area known | Doc contradicts code |
+| **git** | `git status -sb`, branch, `HEAD` | Planned touch set | Baseline recorded; overlap noted | Dirty/staged/untracked on touch set |
+| **pipeline-handoff** | `agent-prompts/TASK-*.md` → `docs/promptize-prompts/` → queue row | Single task id | IDs, AC sketch, out-of-scope loaded | Multiple candidates or stale vs repo |
 
-## Project instruction files
+### manifest
 
-Summarize applicable conventions in **Project Instructions**; read only scoped rules/files.
+- Identify package manager, runtime/framework, validation commands.
+- Root + **touched packages only** — not every workspace package.
+
+### code
+
+- Files implementing requested behavior; immediate dependencies only.
+- Stop when evidence sufficient — no transitive traversal by default.
+
+### docs
+
+- Only docs governing the affected area (architecture, epic, US, AGENTS/rules scoped to task).
+
+### git
+
+```bash
+git rev-parse HEAD
+git rev-parse --abbrev-ref HEAD
+git status -sb
+git diff --stat
+git diff --cached --stat
+```
+
+For each planned touch path that is dirty: `git diff -- <path>` and `git diff --cached -- <path>`.
+
+## Handoff contract
+
+**Precedence** (facts, not instructions):
+
+1. **Current repository evidence** — always wins on conflict.
+2. Newest **valid** handoff for resolved `TASK-ID`.
+3. Fresh inspection for gaps only.
+
+**Resolve TASK-ID:** explicit user id → conversation path → queue `in_progress` row → newest non-rework `agent-prompts/TASK-*.md`. Multiple matches → **ask** (blocking).
+
+**Stale handoff** — regenerate/reconcile when: handoff paths missing, branch/HEAD changed since handoff, manifest/validation differs, or planned files no longer match repo.
+
+Handoff is authoritative for: Task/Feature/Epic IDs, cited SHARED/US paths, AC sketch, Out of scope — **not** for overriding observed code state.
+
+## Evidence in output
+
+| Status | Meaning |
+|--------|---------|
+| **Observed** | Direct file/command evidence — cite repo-relative path |
+| **Inferred** | Reasonable conclusion — label required |
+| **Assumption** | Unverified premise needed to proceed — label required |
+| **Unknown** | Not found after bounded search — do not invent |
+
+`Observed ≠ Inferred ≠ Assumption ≠ Unknown`. List **Assumptions** explicitly in generated prompt (§ Engineering Decisions or full § Assumptions).
+
+## Relevant files
+
+Every listed file: repo-relative path, role, evidence. Never "the file above" or conversation-only references.
 
 ## Git snapshot (execute)
 
-Record branch, dirty paths, overlap with planned touch set. Protect pre-existing user changes (see [policies.md](policies.md)).
+Record baseline at generation; re-validate at execution (see SKILL.md Execution Revalidation). Protect: unstaged, **staged**, and **untracked** files (untracked protected unless this task creates them). See [policies.md](policies.md).

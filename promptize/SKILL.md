@@ -7,7 +7,7 @@ description: >-
   spec. Supports --execute, --full, --save-to-file, and --save (alias) flags.
   Default output is compact (8 sections); use --full for API/migration work.
 disable-model-invocation: true
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Promptize
@@ -31,7 +31,7 @@ When the user message begins with `/promptize`, or the user explicitly asks to *
 1. **Prompt-only vs auto-execute** — Default: emit the structured prompt and stop. Execute only with `/promptize --execute` or an explicit follow-up (`execute` / `implement` / «انجامش بده»).
 2. **Skill frontmatter** — `name`, `description`, `disable-model-invocation: true`, `version` (not Cursor Rules `alwaysApply`).
 3. **Activation** — `/promptize …` and natural-language “promptize / expand into an engineering prompt”.
-4. **Evidence** — Tag claims as Observed / Inferred / Unknown; never invent stack or architecture; never present inference as observed fact.
+4. **Evidence** — Tag claims Observed / Inferred / Assumption / Unknown; never invent stack or architecture; never present inference as observed fact. Bounded inspection per [inspection.md](inspection.md).
 5. **Testing** — Use repo-provided validation commands only; invent neither harness nor commands.
 6. **Scope** — Required vs supporting vs optional; optional out unless requested; explicit Out of Scope.
 7. **Risky ops** — Confirmation for destructive/migration/security work is separate from no-auto-execute.
@@ -49,7 +49,7 @@ When the user message begins with `/promptize`, or the user explicitly asks to *
 | `/promptize --save-to-file <short request>` | Build, output, **and save** to an auto-generated filename |
 | `/promptize --save …` | Alias of `--save-to-file` |
 | Natural language: “promptize …”, “expand this into an engineering prompt” | Same as `/promptize` (prompt-only) |
-| After a prompt-only reply, user says `execute` / `implement` / «انجامش بده» | Implement the **most recently generated** Promptize prompt **exactly**, unless the user explicitly modifies the request |
+| After a prompt-only reply, user says `execute` / `implement` / «انجامش بده» | **Revalidate** repo state, then implement the latest spec against **current** repository state (see Execution Revalidation) |
 
 Flags may be combined, e.g. `/promptize --execute --save-to-file docs/prompts/foo.md <request>`.
 
@@ -80,16 +80,18 @@ Parse flags anywhere after `/promptize` before treating the remainder as the sho
 ```yaml
 ---
 promptize:
-  version: 1
+  schema_version: 1
+  skill_version: <from frontmatter>
   generated_at: <ISO-8601 or local timestamp>
   source_request: "<short request>"
   repository: <workspace root name or path>
+  git_head: <HEAD at generation, if git repo>
   mode: prompt-only | execute
 ---
 ```
 
 6. After saving, tell the user the absolute or workspace-relative path.
-7. Saving a new file is not destructive; overwriting an existing `{FILE_PATH}` is — ask before overwrite unless the user explicitly said overwrite.
+7. Saving a new file is not destructive; overwriting an existing `{FILE_PATH}` is — **ask before overwrite** unless the user explicitly said overwrite. With `--execute` + existing file: confirm overwrite **first**; if declined, save to a new path or skip save — then proceed to execution only after save intent is resolved.
 8. `--save-to-file` does **not** imply `--execute`.
 
 Examples:
@@ -110,7 +112,7 @@ Phases are sequential and distinct:
 4. **Decide** — apply Engineering Contracts below; choose **compact** vs **full** output; ask only for **blocking** unknowns.
 5. **Generate** — emit the self-contained prompt (**compact** by default, or **full** with `--full`).
 6. **Persist** — if `--save-to-file` / `--save`, write with metadata and report the path.
-7. **Execute** — only if `--execute` or same-message implement ask; otherwise **stop**. Follow Execution Rules.
+7. **Execute** — only if `--execute` or same-message implement ask; otherwise **stop**. Revalidate → implement → validate → **diff review** → report. Follow Execution Rules.
 
 ---
 
@@ -122,18 +124,21 @@ Tag every Repository Context claim:
 
 | Status | Meaning |
 |--------|---------|
-| **Observed** | Directly supported by repository evidence (cite source) |
+| **Observed** | Directly supported by repository evidence (cite repo-relative path) |
 | **Inferred** | Reasonable conclusion; must be labeled Inferred |
-| **Unknown** | Not established; do not invent |
+| **Assumption** | Unverified premise needed to proceed; must be labeled Assumption |
+| **Unknown** | Not found after bounded search ([inspection.md](inspection.md)); do not invent |
 
-**Never present an inference as an observed fact.**
+`Observed ≠ Inferred ≠ Assumption ≠ Unknown`. Never present Inferred or Assumption as Observed.
 
 ### Priority hierarchy
 
 1. Explicit user requirements
 2. Repository conventions and evidence
 3. Inferences
-4. Assumptions (avoid)
+4. Assumptions (minimize; list explicitly)
+
+Security and destructive operations override convenience defaults. When requirements conflict → **surface the conflict**; do not silently choose unless hierarchy resolves it. See [policies.md](policies.md) Conflict resolution.
 
 If the user requests technology X but the repo uses Y: document the conflict; recommend extending Y unless the user **explicitly** requires replacing the architecture.
 
@@ -157,7 +162,7 @@ Do not expand into unrelated refactoring. Always include an **Out of Scope** lis
 
 ### Self-contained output
 
-The generated prompt MUST stand alone. It must not depend on previous conversation, “as discussed above”, implicit assumptions, omitted user details, or unstated repository knowledge.
+The generated prompt MUST stand alone. It must not depend on previous conversation, “as discussed above”, implicit assumptions, omitted user details, or unstated repository knowledge. All file references use **repo-relative paths** — never “the file above” or conversation-only pointers.
 
 ### Repository instructions isolation
 
@@ -194,7 +199,7 @@ One clear outcome statement.
 
 ### 2. Engineering Decisions
 
-Material choices: extend vs replace, deps, migrations.
+Material choices: extend vs replace, deps, migrations. **Assumptions** (labeled) when needed.
 
 ### 3. Repository Context
 
@@ -219,14 +224,14 @@ Functional + technical bullets; include API/data-flow detail here when compact t
 
 ### 7. Constraints & Out of Scope
 
-Constraints, protected areas, dependency policy; explicit **Out of Scope** list. Add Security / NFR bullets here only when applicable (otherwise omit).
+Constraints, protected areas, dependency policy; **Change Budget** (smallest coherent change set; reassess if touch set grows unexpectedly); explicit **Out of Scope** list. Add Security / NFR bullets here only when applicable (otherwise omit).
 
 ### 8. Acceptance, Validation & Plan
 
-- **Acceptance criteria** — observable, testable
+- **Acceptance criteria** — what the software must **do** (observable behavior)
+- **Definition of done** — engineering completion bar (not behavior restatement; see [policies.md](policies.md))
 - **Testing & validation** — repo commands or manual steps
-- **Definition of done** — short checklist
-- **Implementation plan** — ordered steps
+- **Implementation plan** — Inspect → Plan → Implement → Validate → **Diff review** → Verify AC
 
 ---
 
@@ -241,6 +246,10 @@ Desired outcome in one clear statement.
 ## Engineering Decisions
 
 Bullet list of material decisions (extend vs replace, reuse libs, deps, migrations, etc.).
+
+## Assumptions
+
+Labeled premises not directly observed — each with risk if wrong. Omit if none.
 
 ## Repository Context
 
@@ -297,14 +306,14 @@ Explicit behaviors. Use `N/A` for irrelevant bullets:
 - API changes
 - State changes
 
-For API changes when applicable, document: new / modified / breaking / internal-only; endpoint; method; request/response; errors; auth; backward compatibility. See [policies.md](policies.md).
+For interface changes when applicable, classify per [policies.md](policies.md) (HTTP, GraphQL, RPC, events, CLI, webhooks, internal).
 
 ## Technical Requirements
 
 - Files/modules involved (observed or clearly marked proposed paths)
 - Implementation approach aligned with repo patterns
 - Coding standards / type safety from the stack
-- Database/migration notes when schema changes — see [policies.md](policies.md)
+- Database/migration notes when schema changes — expand/contract strategy if applicable ([policies.md](policies.md))
 
 ## Impact Analysis
 
@@ -322,7 +331,7 @@ Invalid inputs, errors, boundaries. Security detail belongs in Security Consider
 
 ## Security Considerations
 
-When applicable, only **relevant** items (authn/z, validation, injection, XSS/CSRF, secrets, uploads, path traversal, SSRF, sensitive data, deps, permissions). Otherwise `N/A — Not applicable to this task.`
+Risk analysis per [policies.md](policies.md) (trust boundaries, attacker inputs, privileged ops, data flows, failure modes) — then relevant controls. Otherwise `N/A — Not applicable to this task.`
 
 ## Non-Functional Requirements
 
@@ -332,7 +341,7 @@ When applicable: performance, accessibility, security, reliability, scalability,
 
 Respect existing architecture, APIs, style, backward compatibility.
 
-Apply dependency policy from [policies.md](policies.md). Avoid unnecessary refactoring and unjustified new dependencies.
+Apply dependency policy from [policies.md](policies.md). **Change Budget:** modify only required files; smallest coherent change; reassess if scope expands unexpectedly.
 
 List **Protected Areas** / generated artifacts that must not be edited unless required.
 
@@ -349,31 +358,22 @@ Explicit list of reasonable changes that must **not** be made.
 
 ## Acceptance Criteria
 
-Must be **observable**, **specific**, **testable**, derived from requested behavior, and free of unnecessary implementation detail.
+What the software **must do** — observable, specific, testable. Not engineering checklist items.
 
-Bad: “Login works correctly.”
-Good: “Valid credentials create a session.” / “Invalid credentials return the existing error response.”
+Bad: “Login works correctly.” Good: “Valid credentials create a session.” / “Invalid credentials return 401.”
 
 ## Definition of Done
 
-- Implementation matches requested behavior
-- No unrelated files modified
-- Existing APIs remain compatible unless explicitly changed
-- Formatting/linting passes where configured
-- Relevant tests pass where available
-- No new dependency without justification
-- No unresolved TODOs left from this task
-- Working-tree protection respected (see [policies.md](policies.md))
+Engineering completion per [policies.md](policies.md) — includes diff review confirming no unrelated files, debug code, accidental formatting, or unjustified deps.
 
 ## Implementation Plan
 
-Ordered steps:
-
-1. Analyze current code / docs evidence
-2. Identify affected files (respect dirty working tree)
-3. Implement required (+ necessary supporting) changes only
-4. Validate with repo-appropriate methods and relevant commands
-5. Confirm Acceptance Criteria and Definition of Done
+1. Bounded inspect ([inspection.md](inspection.md))
+2. Identify touch set (respect protected/staged/untracked state)
+3. Implement within change budget
+4. Validate (repo commands)
+5. **Diff review:** `git diff --stat`, scoped `git diff`, `git status` — unrelated changes, generated files, TODOs, dep/migration surprises
+6. Verify acceptance criteria + definition of done
 
 ---
 
@@ -381,10 +381,32 @@ Ordered steps:
 
 Apply when implementing (`--execute` or explicit follow-up execute):
 
-- Implement the **most recently generated** Promptize prompt exactly as the active task specification, unless the user explicitly modifies the request.
-- Prefer repository evidence over assumptions; keep changes minimal and focused.
-- Follow [policies.md](policies.md): never overwrite, revert, reset, or discard pre-existing user changes; treat unrelated working-tree changes as protected. If the task touches a dirty file, surface the overlap before editing.
-- For destructive operations, migrations, deleting files, or security-sensitive changes, **ask for confirmation first** — even with `--execute`.
-- Do not add dependencies, refactors, or docs beyond the generated prompt.
-- If blocking Unknowns remain, ask before coding.
-- If `--save-to-file` was also passed, save the generated prompt **before** starting implementation.
+### Execution revalidation
+
+Before coding, verify repository has not **materially diverged** since prompt generation:
+
+1. Compare current `HEAD`, branch, `git status -sb` to generation baseline (or saved `git_head`).
+2. Re-check dirty/staged/untracked overlap with planned touch set.
+3. Confirm planned files still exist and match observed behavior.
+4. If handoff was used, re-check for stale handoff ([inspection.md](inspection.md)).
+
+If material divergence → reconcile or regenerate relevant prompt sections before implementing.
+
+Then: implement the **latest specification against current repository state** (user may have modified the request).
+
+### During implementation
+
+- **Change budget** ([policies.md](policies.md)): required files only; smallest coherent change; stop and reassess if touch set grows unexpectedly.
+- Prefer repository evidence over assumptions.
+- Protect unstaged, **staged**, and **untracked** user files ([policies.md](policies.md)). Read scoped diffs on dirty touch paths before editing.
+- Destructive ops, migrations, deletions, security-sensitive changes → **confirm first**, even with `--execute`.
+- No deps, refactors, or docs beyond the generated prompt.
+- Blocking Unknowns → ask before coding.
+
+### After implementation
+
+**Diff review** (required): `git diff --stat`, scoped `git diff`, `git status` — check unrelated files, formatting-only noise, generated artifacts, debug code, TODOs, dependency/migration changes. Then run relevant validation commands.
+
+### Save sequencing
+
+If `--save-to-file` was passed: save prompt **before** implementation. Overwrite needs confirmation before save; resolve save intent before execute.
