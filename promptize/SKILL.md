@@ -7,7 +7,7 @@ description: >-
   spec. Supports --execute, --full, --save-to-file, and --save (alias) flags.
   Default output is compact (8 sections); use --full for API/migration work.
 disable-model-invocation: true
-version: 1.3.0
+version: 1.4.0
 ---
 
 # Promptize
@@ -104,15 +104,19 @@ Examples:
 
 ## Workflow
 
-Phases are sequential and distinct:
+**Canonical lifecycle** (use everywhere; execution uses the tail subset):
+
+`Parse → Understand → Inspect → Decide → Generate → Persist → [Revalidate → Implement → Validate → Diff Review → Verify AC → Report]`
+
+Bracketed steps run only on `--execute` or follow-up execute.
 
 1. **Parse** — flags + short request.
 2. **Understand** — outcome, scope, risks. No coding.
-3. **Inspect** — follow [../shared/inspect.md](../shared/inspect.md) + [inspection.md](inspection.md). Task-scoped slices only. Read [policies.md](policies.md) when the domain hits git, deps, security, DB, API, UI, NFR, or protected areas.
-4. **Decide** — apply Engineering Contracts below; choose **compact** vs **full** output; ask only for **blocking** unknowns.
-5. **Generate** — emit the self-contained prompt (**compact** by default, or **full** with `--full`).
-6. **Persist** — if `--save-to-file` / `--save`, write with metadata and report the path.
-7. **Execute** — only if `--execute` or same-message implement ask; otherwise **stop**. Revalidate → implement → validate → **diff review** → report. Follow Execution Rules.
+3. **Inspect** — [inspect.md](../shared/inspect.md) + [inspection.md](inspection.md); bounded slices only. [policies.md](policies.md) when domain requires.
+4. **Decide** — engineering contracts; compact vs full; define **Touch Set**; blocking unknowns per mode below.
+5. **Generate** — self-contained prompt (compact default, `--full` when needed).
+6. **Persist** — if `--save-to-file` / `--save`.
+7. **Execute tail** — Revalidate → Implement → Validate → Diff Review → Verify AC → Report. See Execution Rules.
 
 ---
 
@@ -142,13 +146,27 @@ Security and destructive operations override convenience defaults. When requirem
 
 If the user requests technology X but the repo uses Y: document the conflict; recommend extending Y unless the user **explicitly** requires replacing the architecture.
 
+### Touch Set
+
+Minimal repo paths expected to change for this task.
+
+- Every modified/created/deleted path must belong to the Touch Set.
+- Supporting paths need explicit justification.
+- Unexpected modified paths → reassess.
+- Dirty paths are **not** auto-included — inspect/protect separately.
+- Generated files excluded unless repo convention requires.
+
+Used by inspection, git protection, change budget, execution, and diff review.
+
 ### Clarification threshold
 
-**Blocking unknowns** (ask before coding / before a safe prompt when `--execute`): which database/environment; intended auth semantics; production impact; destructive migration semantics.
+**Prompt-only:** emit `Unknown — requires implementation-time verification` when a useful, non-misleading spec is still possible. Ask only when the spec would be unsafe or materially misleading.
 
-**Non-blocking unknowns** (mark Unknown or Inferred; do not interrogate): exact variable/component names; minor UI spacing; test naming conventions.
+**`--execute` / follow-up execute:** resolve blocking unknowns before coding (DB/environment, auth semantics, production impact, destructive migration semantics).
 
-**Do not ask for information that repository evidence can provide or that can safely be inferred.**
+**Non-blocking** (either mode): exact names, minor UI spacing, test naming — mark Unknown/Inferred.
+
+**Do not ask** for what bounded inspection can establish.
 
 ### Scope control
 
@@ -224,14 +242,14 @@ Functional + technical bullets; include API/data-flow detail here when compact t
 
 ### 7. Constraints & Out of Scope
 
-Constraints, protected areas, dependency policy; **Change Budget** (smallest coherent change set; reassess if touch set grows unexpectedly); explicit **Out of Scope** list. Add Security / NFR bullets here only when applicable (otherwise omit).
+Constraints, protected areas, dependency policy; **Touch Set** + **Change Budget**; explicit **Out of Scope**. Security/NFR only when applicable.
 
 ### 8. Acceptance, Validation & Plan
 
 - **Acceptance criteria** — what the software must **do** (observable behavior)
 - **Definition of done** — engineering completion bar (not behavior restatement; see [policies.md](policies.md))
 - **Testing & validation** — repo commands or manual steps
-- **Implementation plan** — Inspect → Plan → Implement → Validate → **Diff review** → Verify AC
+- **Implementation plan** — task-appropriate subset of canonical lifecycle (typically: Inspect → define Touch Set → Implement → Validate → Diff Review → Verify AC)
 
 ---
 
@@ -341,7 +359,7 @@ When applicable: performance, accessibility, security, reliability, scalability,
 
 Respect existing architecture, APIs, style, backward compatibility.
 
-Apply dependency policy from [policies.md](policies.md). **Change Budget:** modify only required files; smallest coherent change; reassess if scope expands unexpectedly.
+Apply dependency policy from [policies.md](policies.md). **Touch Set** + **Change Budget** per Engineering Contracts.
 
 List **Protected Areas** / generated artifacts that must not be edited unless required.
 
@@ -368,12 +386,12 @@ Engineering completion per [policies.md](policies.md) — includes diff review c
 
 ## Implementation Plan
 
-1. Bounded inspect ([inspection.md](inspection.md))
-2. Identify touch set (respect protected/staged/untracked state)
-3. Implement within change budget
-4. Validate (repo commands)
-5. **Diff review:** `git diff --stat`, scoped `git diff`, `git status` — unrelated changes, generated files, TODOs, dep/migration surprises
-6. Verify acceptance criteria + definition of done
+Task-appropriate subset of canonical lifecycle:
+
+1. Bounded inspect → define **Touch Set**
+2. Implement within change budget (respect protected git state)
+3. Validate (repo commands)
+4. Diff review → verify AC + DoD
 
 ---
 
@@ -383,25 +401,44 @@ Apply when implementing (`--execute` or explicit follow-up execute):
 
 ### Execution revalidation
 
-Before coding, verify repository has not **materially diverged** since prompt generation:
+Before coding, compare current repo to generation baseline (`git_head`, branch, status).
 
-1. Compare current `HEAD`, branch, `git status -sb` to generation baseline (or saved `git_head`).
-2. Re-check dirty/staged/untracked overlap with planned touch set.
-3. Confirm planned files still exist and match observed behavior.
-4. If handoff was used, re-check for stale handoff ([inspection.md](inspection.md)).
+**Material divergence** (must act before implement):
 
-If material divergence → reconcile or regenerate relevant prompt sections before implementing.
+- `HEAD` or branch changed
+- planned Touch Set path added/removed/renamed or became dirty
+- relevant implementation behavior changed
+- manifest/deps/validation commands changed
+- handoff assumptions no longer hold
 
-Then: implement the **latest specification against current repository state** (user may have modified the request).
+**Non-material** (note but do not block): unrelated dirty/untracked files.
+
+**Response:**
+
+| Divergence | Action |
+|------------|--------|
+| Minor (touch-set/metadata drift) | Update affected Repository Context / Touch Set |
+| Material behavioral | Regenerate spec from current evidence |
+| Safety-relevant | Stop and ask |
+
+Then implement latest spec against **current** repository state.
+
+### Path states at execution
+
+| State | Rule |
+|-------|------|
+| Existing dirty Touch Set path | Inspect diff; protect user intent |
+| Planned new path (in Touch Set) | Allowed when task requires creation |
+| Unexpected new/modified path | Protected — reassess; not auto-included |
 
 ### During implementation
 
 - **Change budget** ([policies.md](policies.md)): required files only; smallest coherent change; stop and reassess if touch set grows unexpectedly.
 - Prefer repository evidence over assumptions.
-- Protect unstaged, **staged**, and **untracked** user files ([policies.md](policies.md)). Read scoped diffs on dirty touch paths before editing.
+- Protect unstaged, **staged**, and **untracked** files per [policies.md](policies.md) path-state rules. Scoped diff on dirty Touch Set paths before editing.
 - Destructive ops, migrations, deletions, security-sensitive changes → **confirm first**, even with `--execute`.
 - No deps, refactors, or docs beyond the generated prompt.
-- Blocking Unknowns → ask before coding.
+- Blocking Unknowns → resolve before coding (`--execute` only).
 
 ### After implementation
 

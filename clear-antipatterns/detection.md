@@ -1,51 +1,54 @@
-# Detection (Scan → Classify → Inspect)
+# Detection (Scan → Classify → Inspect → Confirm → Risk)
 
-**Heuristics produce candidates, not confirmed anti-patterns.** Confirm via contextual inspection before any edit.
+**Heuristics = candidates only.** Risk is assessed **after** contextual confirmation.
 
-Vars: `$SCOPE`; `$I`=`--include='*.ts' --include='*.tsx'`; `$X`=`| grep -v node_modules`; `$F`=find ts/tsx excluding `node_modules`/`dist`/`build` + repo-generated paths.
+Vars: `$SCOPE`; `$I`=`--include='*.ts' --include='*.tsx'`; `$X`=`| grep -v node_modules`; `$F`=find ts/tsx excluding generated/vendor paths.
 
-File scope → `grep -n`; use `head` on scan. If repo has AST/lint duplicate/unused-export tooling, prefer it over fragile regex.
+Prefer repo AST/lint/unused-export tooling over grep when available. File scope → `grep -n`; use `head` on scan.
 
 ## Catalog
 
 |#|Name|Candidate heuristic|Confirm before fix|
 |-|-|-|-|
-|1|Spaghetti|long fn, deep indent|control-flow complexity, nesting, responsibility count, readability, local patterns — not line count alone|
-|2|Golden Hammer|—|**manual only** — pattern forced where unsuitable|
-|3|Lava Flow|comment blocks, stale suppress, possibly unreferenced export|barrels, dynamic import, framework registration, tests, external API — **"possibly unused" ≠ dead**|
-|4|God Object|large file, many params|mixed responsibilities/domains, coupled state, distinct change reasons — coherent large modules OK|
-|5|Premature Opt|—|**manual only** — need evidence before removing memo/cache; absence of profiling ≠ proof|
-|6|Identical files|`md5sum` duplicate files|**not** general duplicate-block detection; same hash = identical file candidate only|
-|7|Magic literals|bare nums/strings in logic|domain meaning, reuse, independent change, non-obvious — obvious locals (e.g. HTTP status) stay inline|
-|8|Hard Coding|URLs, ports, secret-like names|split: **config** vs **potential secret** — redact secrets; use existing config mechanism|
-|9|`any`|`: any`, `as any`|prefer: concrete type → generic → union → `unknown`+narrow → justified escape; no mechanical `any→unknown`|
-|10|Suppressions|`@ts-ignore`, `@ts-nocheck`, eslint-disable|`@ts-expect-error` may stay if intentional+documented; treat suppression kinds separately|
+|1|Spaghetti|approx long-fn, deep indent|control-flow, nesting, responsibilities, readability — prefer AST/lint for fn boundaries; awk is approximate only|
+|2|Golden Hammer|—|**manual only**|
+|3|Lava Flow|comments, suppress, possibly unreferenced export|barrels, dynamic import, registration, tests, external API — grep name-match is imprecise; prefer repo unused-export tooling|
+|4|God Object|`LARGE_MODULE_CANDIDATE` (line count)|mixed responsibilities/domains, coupled state — coherent large modules OK|
+|5|Premature Opt|—|**manual only** — evidence before removing optimizations|
+|6|Identical files|`md5sum` match|identical **files** only — not duplicate blocks|
+|7|Magic literals|bare nums/strings|domain meaning, reuse, non-obvious — obvious locals stay inline|
+|8|Hard Coding|URLs, ports, secret-like names|config vs potential secret — redact; never `cat`/echo secrets|
+|9|`any`|`: any`, `as any`|concrete → generic → union → `unknown`+narrow → escape|
+|10|Suppressions|various suppress kinds|`@ts-expect-error` may stay if intentional+documented|
 
 ## Grep candidates (discovery only)
 
 ```bash
-# 1 Spaghetti — candidate generators
-$F | xargs awk '/^function |^export function |^const .* = \(/ {f=FILENAME;s=NR} /^}/ {if(NR-s>80) print f":"s" CANDIDATE long-fn ("NR-s" lines)"}'
+# 1 Spaghetti — APPROXIMATE_LONG_FN_CANDIDATE (first } ≠ fn end; nested fns false-positive)
+# Prefer repo AST/lint for function length/structure when available
+$F | xargs awk '/^function |^export function |^const .* = \(/ {f=FILENAME;s=NR} /^}/ {if(NR-s>80) print f":"s" APPROXIMATE_LONG_FN_CANDIDATE ("NR-s" lines)"}'
 grep -rn "^\s\{16,\}" $I "$SCOPE" $X | head -20
 
-# 3 Lava Flow
+# 3 Lava Flow — POSSIBLY_UNUSED_EXPORT (substring false positives; incomplete export forms)
+# Prefer: tsc --noEmit unused, eslint unused-exports, knip, depcheck, etc.
 grep -rn "^export " $I "$SCOPE" $X | while read line; do
   file=$(echo "$line" | cut -d: -f1); name=$(echo "$line" | grep -oP 'export (?:function|const|type|interface|class) \K\w+')
-  count=$(grep -rl "$name" $I "$SCOPE" $X | grep -v "$file" | wc -l)
-  [ "$count" -eq 0 ] && echo "POSSIBLY_UNUSED: $line"
+  [ -z "$name" ] && continue
+  count=$(grep -rlw "$name" $I "$SCOPE" $X | grep -v "$file" | wc -l)
+  [ "$count" -eq 0 ] && echo "POSSIBLY_UNUSED_EXPORT: $line"
 done
 grep -rn "//.*\(function\|const\|return\|if \)" $I "$SCOPE" $X | head -20
 
-# 4 God Object
-$F | xargs wc -l | sort -rn | head -20
+# 4 God Object — LARGE_MODULE_CANDIDATE (line count ≠ God Object)
+$F | xargs wc -l | sort -rn | head -20 | awk '{print "LARGE_MODULE_CANDIDATE:", $0}'
 
-# 6 Identical files (not duplicate blocks)
+# 6 Identical files
 $F | xargs md5sum | sort | uniq -d -w 32
 
 # 7 Magic literals
 grep -rn "[^a-zA-Z_][2-9][0-9]\+\b\|[^a-zA-Z_]1[0-9]\{2,\}\b" $I "$SCOPE" $X | grep -v "//\|import\|export\|type\|interface" | head -20
 
-# 8 Hard Coding — redact matches in reports; never copy secret values
+# 8 Hard Coding — redact in output; never cat/print secret files or values
 grep -rn "http://\|https://" $I "$SCOPE" $X | grep -v "import\|href\|localhost" | head -20
 grep -rn ":[0-9]\{4,5\}\b" $I "$SCOPE" $X | head -10
 grep -rn "password\|secret\|token\|apikey\|api_key" $I "$SCOPE" $X | grep -v "import\|type\|interface\|//" | head -10
@@ -53,42 +56,34 @@ grep -rn "password\|secret\|token\|apikey\|api_key" $I "$SCOPE" $X | grep -v "im
 # 9 any
 grep -rn ": any\|: any\[\]\|as any\|<any>" $I "$SCOPE" $X | grep -v "\.d\.ts" | head -30
 
-# 10 Suppressions (kinds differ — confirm each)
+# 10 Suppressions
 grep -rn "@ts-ignore\|@ts-expect-error\|@ts-nocheck" $I "$SCOPE" $X
 grep -rn "eslint-disable.*@typescript-eslint" $I "$SCOPE" $X
 ```
 
 ## Bounded contextual inspection
 
-Per candidate, read until sufficient:
+Per candidate until sufficient: (1) what it is, (2) truly anti-pattern?, (3) remediation justified?, (4) smallest safe change, (5) **risk** + engineering benefit.
 
-1. What it represents
-2. Whether it is truly an anti-pattern
-3. Whether remediation is justified
-4. Smallest safe change
+**TSX:** hook order, closures, state, context, memo before extraction.
 
-Inspect: containing function/class/module; immediate imports/exports; direct usages; relevant tests; project conventions. **TSX:** hook order, closures, state, context, memo, component boundaries before extraction.
+## Remediation file
 
-## Remediation file format
-
-`docs/antipattern-remediation.md` when >15 confirmed or >10 files:
+When >15 confirmed or >10 files **and** path permitted by repo conventions:
 
 ```markdown
 # Anti-Pattern Remediation
 Scope: {path} | Generated: {timestamp}
 
 ## Finding
-- Pattern: {1-10 name}
+- Pattern: {name}
 - Risk: low | medium | high
 - Status: pending | fixed | accepted | blocked
-- File: {repo-relative path}
-- Issue: {description — no secret values}
-- Evidence: {observed/inferred — cite paths}
-- Fix: {minimal planned change}
-- Verification: {command or check run}
+- File: {path}
+- Issue: {no secrets}
+- Evidence: {observed/inferred}
+- Fix: {minimal change}
+- Verification: {command}
 ```
 
-- `fixed` — remediated
-- `accepted` — intentionally retained (document why)
-- `blocked` — cannot safely execute
-- **Never** include secret contents
+Never include secret contents.

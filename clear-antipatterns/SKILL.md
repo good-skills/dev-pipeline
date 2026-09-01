@@ -4,14 +4,14 @@ description: >-
   Conservative TS anti-pattern remediation in any path/file.
   /clear-antipatterns [scope] [pattern]. Grep finds candidates; context confirms.
 disable-model-invocation: true
-version: 2.0.0
+version: 2.1.0
 ---
 
 # Clear Anti-Patterns
 
 `/clear-antipatterns` → activate. Heuristics: [detection.md](detection.md) (**load at Scan**). Tokens: [../shared/token-efficiency.md](../shared/token-efficiency.md).
 
-**Principle:** Detection identifies **candidates**; contextual evidence determines whether remediation is justified. Optimize for **low-risk, behavior-preserving** fixes — not removal count.
+**Principle:** Detection identifies **candidates**; contextual evidence determines whether remediation is justified. Optimize for **justified, minimal, behavior-preserving** improvements. Do not modify code unless the anti-pattern is **confirmed** and remediation has clear engineering benefit.
 
 ## Args
 
@@ -34,82 +34,89 @@ version: 2.0.0
 | **Assumption** | Unverified premise — label required |
 | **Unknown** | Not established — do not fabricate |
 
-On conflict: prefer repo evidence → preserve behavior → reassess or escalate. Never print secret values.
+On conflict: prefer repo evidence → preserve behavior → reassess or escalate.
 
-## Risk (confirmed findings only)
+**Secrets:** never echo, `cat`, print, or include raw secret values in terminal output, reports, remediation files, summaries, patches, or comments.
 
-| Risk | Fix when |
-|------|----------|
-| **low** | Mechanical, behavior-preserving change highly likely |
-| **medium** | Contextual refactor; minimal change; stronger validation |
-| **high** | Public contract, security, behavior-sensitive — **confirm before execute** |
+## Risk (after Inspect + Confirm only)
+
+Assess risk **after** contextual confirmation — not at scan time.
+
+| Risk | Execution policy |
+|------|------------------|
+| **low** | Auto-fix when confirmed and behavior-preserving |
+| **medium** | Execute only when contextual evidence + targeted validation make behavior preservation reasonably demonstrable |
+| **high** | Explicit user confirmation required (public contract, security, behavior-sensitive) |
+
+Confirmed but low-benefit → mark `accepted` with justification; do not fix opportunistically.
 
 ## Workflow
 
 1. **Resolve** — scope, pattern, package boundaries.
-2. **Scan** — load detection.md; grep-first → **candidates only** (not proof).
-3. **Classify** — dedupe; assign pattern; estimate risk.
-4. **Inspect** — read containing fn/class/module, imports/exports, usages, tests, conventions; confirm or reject. Stop when sufficient.
-5. **Plan** — minimal fix; split safe vs risky; remediation file if >15 confirmed or >10 files.
-6. **Protect** — git baseline (below); detect dirty overlap.
-7. **Execute** — confirmed findings only; preserve behavior; no opportunistic refactors.
-8. **Verify** — narrowest repo-defined validation covering changed files; escalate per monorepo boundaries.
-9. **Review** — mandatory diff review (below).
+2. **Scan** — load detection.md; grep-first → **candidates only**.
+3. **Classify** — dedupe; assign pattern (no risk yet).
+4. **Inspect** — bounded context; confirm or reject; assess **risk**; judge engineering benefit.
+5. **Plan** — minimal fix; remediation file if >15 confirmed or >10 files (when repo permits).
+6. **Protect** — record git baseline (below).
+7. **Execute** — per risk policy; confirmed + justified only.
+8. **Verify** — narrowest repo-defined validation for touch set.
+9. **Review** — scoped diff attribution (below).
 10. **Report** — fixes, accepted retains, validation, blockers.
 
-`grep`/`awk`/`find`/hashes = discovery tools, not semantic proof. Prefer existing repo AST/lint tooling when present; no new deps for detection.
+`grep`/`awk`/`find`/hashes = discovery only. Prefer repo AST/lint/unused-export tooling when present; no new deps.
 
-## Git protection (before Execute)
+## Git baseline (before Execute)
 
-```bash
-git rev-parse --abbrev-ref HEAD
-git status -sb
-git diff --stat
-git diff --cached --stat
+Record for attribution:
+
+```text
+HEAD, branch, status -sb
+unstaged diff --stat (+ scoped diff per touch path)
+staged diff --stat (+ scoped diff --cached per touch path)
+planned touch set
 ```
 
-- Protect all pre-existing **staged**, **unstaged**, and **untracked** changes (untracked ≠ disposable).
+- Protect staged, unstaged, and pre-existing untracked (untracked ≠ disposable).
 - Never reset/revert/discard/overwrite user changes.
-- Dirty touch path → `git diff -- <path>` + `git diff --cached -- <path>`; preserve intent; avoid same lines unless necessary; surface overlap if unsafe.
+- Dirty existing path → scoped diff before edit; preserve intent.
 
 ## Change budget
 
-- Only files required for **confirmed** findings.
-- Smallest coherent change; no unrelated cleanup or architecture shifts.
-- Reassess if touch set grows unexpectedly.
+Touch set = minimal paths for confirmed findings. Reassess if it grows unexpectedly. No opportunistic refactors.
 
-## Behavior-sensitive (extra validation)
+## Behavior-sensitive (usually medium/high)
 
-Extracting fns with closures/state; cross-module moves; deleting exports; public type changes; async/control-flow changes; removing memo/cache; config loading; security-sensitive code. **TSX:** preserve hook order, closure/state ownership, context, memo boundaries — no mechanical JSX extraction.
+Closures/state extraction; cross-module moves; export deletion; public types; async/control-flow; memo/cache removal; config loading; security code. **TSX:** hook order, closures, state, context, memo — no mechanical JSX extraction.
 
 ## Validation
 
-Narrowest existing command covering changed files (`package.json` scripts, per-package `tsc`/test). Walk up for monorepo/shared-lib boundaries. **No invented commands.**
+Narrowest existing command covering touch set. Escalate per monorepo/shared-lib boundaries. No invented commands.
 
-## Diff review (required)
+## Diff review (required, scoped)
 
 ```bash
 git status -sb
 git diff --stat
-git diff
+git diff -- <touch-set paths>
+git diff --cached -- <touch-set paths>   # if staged
 ```
 
-Check: unrelated files, user changes preserved, no vendor/generated edits, no debug/TODO churn, no unjustified deps, no unintended API changes, each change maps to a confirmed finding.
+Compare to baseline for attribution. Full `git diff` only on ambiguity. Check: unrelated files, user changes preserved, no vendor/generated edits, debug/TODO churn, no unjustified deps, each change maps to a confirmed finding.
 
 ## Remediation file
 
-Large jobs → `docs/antipattern-remediation.md` (format in detection.md). Status: `pending` | `fixed` | `accepted` | `blocked`. Never store secrets.
+When >15 confirmed or >10 files **and** repo conventions permit task-generated docs — default `docs/antipattern-remediation.md` unless conventions conflict. Format in detection.md. Never store secrets.
 
 ## Rules
 
 - No new deps; preserve behavior; match project conventions.
-- **#2 Golden Hammer, #5 Premature Opt:** manual review only — no auto-fix; require evidence before removing optimizations.
-- False positives / intentional retains → mark `accepted` with justification.
+- **#2, #5:** manual review only — no auto-fix.
+- False positives / low-benefit retains → `accepted` with justification.
 
 ## Protected areas
 
-Always skip: `node_modules`, `dist`, `build`, `coverage`, `.next`, `.turbo`. Also skip repo-specific generated/vendor paths (`generated/`, `vendor/`, `.codegen/`, `prisma/generated/`, etc.) from manifest/conventions. Edit source-of-truth, not generated output.
+Skip: `node_modules`, `dist`, `build`, `coverage`, `.next`, `.turbo`, repo-specific generated/vendor paths from conventions. Protect authoritative fixtures/reference datasets when conventions indicate source-of-truth. Edit source files, not generated output.
 
 ## Out of Scope
 
-Non-TS/TSX, application features unrelated to confirmed anti-patterns, new tools/frameworks, ESLint config (unless asked), mechanical `any→unknown`, splitting coherent large modules by line count alone.
+Non-TS/TSX, unrelated features, new tools, ESLint config (unless asked), mechanical `any→unknown`, splitting coherent large modules by line count alone.

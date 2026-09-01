@@ -16,15 +16,19 @@ git diff --cached --stat
 
 ### Protected state
 
-Never overwrite, revert, reset, or discard:
+Never overwrite, revert, reset, or discard unstaged or **staged** changes.
 
-- Unstaged changes
-- **Staged** changes (`git diff --cached`)
-- **Untracked** files (protected unless this task explicitly creates them)
+**Untracked paths:**
 
-For each planned touch path that is dirty: read `git diff -- <path>` and `git diff --cached -- <path>` to preserve user intent before editing.
+| Case | Rule |
+|------|------|
+| Pre-existing untracked | Protected |
+| Planned new (in Touch Set, task requires) | Allowed at execution |
+| Unexpected new during execution | Protected — reassess |
 
-Unrelated dirty paths → **protected**; do not include in commit unless user asks.
+For dirty **existing** Touch Set paths: `git diff -- <path>` + `git diff --cached -- <path>` before editing.
+
+Unrelated dirty paths → protected.
 
 ## Dependency policy
 
