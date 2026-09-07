@@ -1,352 +1,243 @@
 # Promptize intermediate specification
 
-Do **not** draft the final prompt prose first. Build an intermediate specification, lint it, then render.
+Do **not** draft final prompt prose first — **unless** reuse hit, ultra-gate, or micro direct-render ([inspection.md](inspection.md)). Otherwise: lean Specify → Lint → Render.
 
-Shared policies that inject into the spec: [policies.md](policies.md). Inspection evidence: [inspection.md](inspection.md).
+Shared policies: [policies.md](policies.md). Cache reuse: [../shared/context-cache.md](../shared/context-cache.md).
 
-## Three-stage pipeline
+## Pipeline
 
-| Stage | Name | Input | Output |
-|------:|------|-------|--------|
-| 1 | **Extract** | short request + inspect slices | structured facts |
-| 2 | **Specify** | facts | intermediate specification (schema below) |
-| 3 | **Render** | lint-passed specification | compact or full prompt body |
+| Path | Stages |
+|------|--------|
+| **Reuse hit** | Render prior body (`Cache: REUSE_HIT`) → upsert cache |
+| **Ultra / micro** | Direct-render `minimal` (`Cache: ULTRA`) — no intermediate spec |
+| **Fast / delta** | Extract → Specify → Lint → Render (`Cache: FAST` or `DELTA`) |
 
 ```text
-Inspect → Extract facts → Specify → Lint → Render → Persist → [Execute…]
+Reuse → Ultra/Micro → [Inspect delta?] → Extract → Specify → Lint → Render → Persist + cache upsert → [Execute…]
 ```
 
-Never skip Lint. If Lint fails with **BLOCKED** or unresolved **CONFLICT**, do not render a silent “best effort” prompt — surface the issue (prompt-only) or ask (`--execute`).
+Keep intermediate spec **internal**. Never dump full JSON to the user unless asked.
+
+---
+
+## Token efficiency (v2.1 Ultra Lean — binding)
+
+Target: substantially fewer tokens than report-style prompts; reuse/ultra aim for the smallest viable engineering prompt while keeping MUST/artifact contracts when they apply.
+
+| Rule | Do | Do not |
+|------|----|--------|
+| Reuse first | Exact/normalized `norm_key` + HEAD | Semantic / fuzzy match |
+| Compress | Artifacts, inventories, aliases only | Long excerpts, architecture essays |
+| Evidence | Map only if ≥2 files; else short path | Map for a single file |
+| Lean spec | Omit empties; drop ambiguities/open_questions | Ceremonial null fields |
+| Tier | `ultra-low` → minimal (4 sections); compact default; `--full` explicit | Auto-inflate to 20 sections |
+| Decisions | **One sentence** when possible | Bullet essays |
+| OoS | 3–4 hard excludes | Soft non-goal essays |
+| Lint UI | Prompt-only: silent; surface only count-blocking CONFLICT/BLOCKED | Print WARN/ERROR transcripts |
+| Validation | Inline under AC in compact/minimal | Require `validation_checks` array outside `--full` |
+
+### Evidence aliases
+
+```yaml
+evidence:
+  auth: src/auth.ts#loginHandler
+  routes: src/routes.ts#GET_/login
+```
+
+```text
+Evidence map: auth→src/auth.ts#loginHandler; routes→src/routes.ts#GET_/login
+[Observed: auth]
+```
+
+One file → `auth.ts` (or short repo-relative path); skip the map.
+
+### RECOMP-style compression
+
+Keep: inventories + counts, artifacts, precedence, touch paths, validation commands, CONFLICT/BLOCKED.  
+Drop: narrative stack already in Carry-over, unused policy sections, soft gaps.
 
 ---
 
 ## Intermediate specification schema
 
-Populate every field that applies. Use empty arrays / `null` when N/A — do not invent.
+`schema_version: 3` · edition ultra-lean. Populate **only** fields that apply.
 
-```json
-{
-  "schema_version": 2,
-  "task_id": null,
-  "objective": "",
-  "authoritative_sources": [],
-  "source_precedence": [],
-  "routes": [],
-  "inventories": [],
-  "deliverables": [],
-  "artifacts": [],
-  "requirements": [],
-  "constraints": [],
-  "validation_checks": [],
-  "acceptance_criteria": [],
-  "evidence_policy": {},
-  "naming": {},
-  "ambiguities": [],
-  "open_questions": [],
-  "uncertainty": []
-}
+```yaml
+schema_version: 3
+task_id: null
+objective: ""
+render_tier: compact             # minimal | compact | full
+estimated_tokens: low            # ultra-low | low | mid | high
+evidence: {}                     # alias → path#symbol (≥2 files)
+source_precedence: []            # only if multi-source
+inventories: []
+artifacts: []
+requirements: []                 # id, text, priority, verifiable
+constraints: []
+out_of_scope: []                 # 3–4 hard excludes
+acceptance_criteria: []
+naming: {}                       # filenames as deliverables — one line in compact
+evidence_policy: compact
+uncertainty: []                  # UNKNOWN | CONFLICT | BLOCKED
+# --full only:
+# validation_checks: []
 ```
 
-### Field contracts
+**Removed from schema:** `ambiguities`, `open_questions` — do not emit.
 
 | Field | Purpose |
 |-------|---------|
-| `task_id` | Pipeline/handoff ID when known (`TASK-…`); else `null` |
-| `objective` | Single outcome sentence |
-| `authoritative_sources` | Paths/roles used as evidence (with status) |
-| `source_precedence` | Ordered list: which source wins per data kind |
-| `routes` / `inventories` | Countable inventories (routes, entities, files, …) with `status: active\|inactive` |
-| `deliverables` | Human-readable deliverable list derived from artifacts |
-| `artifacts` | Machine-checkable artifact contracts (count, path, format) |
-| `requirements` | Prioritized, preferably unique requirements |
-| `constraints` | Hard limits / protected areas / deps |
-| `validation_checks` | How to verify deliverables |
-| `acceptance_criteria` | Observable MUST outcomes (must agree with artifacts) |
-| `evidence_policy` | Labels + placement + Observed rules for this task |
-| `naming` | Deterministic naming/normalization rules when filenames matter |
-| `ambiguities` | Soft gaps that do not block a useful spec |
-| `open_questions` | Questions for the user when needed |
-| `uncertainty` | Typed uncertainty entries (`UNKNOWN` / `CONFLICT` / `BLOCKED`) |
+| `estimated_tokens` | `ultra-low` (micro fix) → minimal; `low` docs/single-file → minimal; `mid` multi-file → compact; `high` API/migration/security → prefer `--full` |
+| `evidence` | Alias map when ≥2 cited files |
+| `source_precedence` | Ordered authority when ≥2 sources for a data kind |
+| `artifacts` / `inventories` | Exact integer counts or BLOCKED |
+| `out_of_scope` | Aggressive excludes |
+| `uncertainty` | Typed gaps only |
+
+Evidence policy default (non-diagram): one line — Observed only with map/path; no upgrade Inferred/Unknown→Observed. Expand for diagram deliverables or `--full`. Async: [policies.md](policies.md) only if queues/workers apply.
 
 ---
 
-## Requirements (type + obligation level)
+## Requirements (obligation levels)
 
-Every instruction that will appear in the rendered prompt MUST be classified:
+| `priority` | Render |
+|------------|--------|
+| `MUST` | Imperative; exact counts/paths |
+| `SHOULD` | “SHOULD …” |
+| `MAY` | Optional |
+| `GUIDANCE` | Omit in minimal unless safety |
+| `CONTEXT` | Context only |
+| `ACCEPTANCE` | AC (folded under Requirements in minimal) |
 
-| `priority` | Meaning | Render language |
-|------------|---------|-----------------|
-| `MUST` | Binding; acceptance depends on it | Imperative, exact counts/paths |
-| `SHOULD` | Strong preference; deviation needs justification | “SHOULD …” |
-| `MAY` | Optional | “MAY …” / Optional |
-| `GUIDANCE` | How to execute, not what to deliver | “Guidance:” |
-| `CONTEXT` | Background only — not actionable | Context / Repository Context |
-| `ACCEPTANCE` | Observable done-state | Acceptance criteria section |
-
-```yaml
-requirements:
-  - id: REQ-001
-    text: Create one HTML file per active route
-    priority: MUST
-    verifiable: true
-  - id: REQ-002
-    text: Prefer short filenames when the pattern allows
-    priority: SHOULD
-    verifiable: false
-```
-
-Rules:
-
-- Do not repeat the same `MUST` in multiple sections with different wording.
-- Render all `MUST` together (or under Requirements with a clear `MUST:` block).
-- Never promote `GUIDANCE` / `CONTEXT` / `SHOULD` to sound like `MUST`.
-- Soft phrases (`sensible`, `appropriate`, `as needed`, `or equivalent`) are **forbidden** on `MUST` / `ACCEPTANCE` unless bounded by an explicit rule in `naming` or `artifacts`.
+Forbidden on MUST/ACCEPTANCE: `sensible`, `or equivalent`, `as needed`, `appropriate` unless bounded by `naming`/`artifacts`.
 
 ---
 
 ## Source precedence
 
-When the same fact appears in multiple places (task table, docs, runtime registration, handoff), emit an explicit precedence block in the specification **and** in the rendered prompt.
-
-Default data-kind templates (adapt to the task; do not invent sources that were not inspected):
+Only when ≥2 sources:
 
 ```text
-Source precedence (<data-kind>):
-1. <highest-authority source>
-2. <secondary>
-3. <tertiary>
-
-If sources disagree:
-- do not silently choose one;
-- record uncertainty type CONFLICT (or BLOCKED if deliverables cannot be counted);
-- do not implement affected output until resolved.
+Precedence (routes): 1) index.js 2) task table 3) api.md — conflict → CONFLICT, do not guess.
 ```
-
-Examples of data kinds: `routes`, `entities`, `validation_commands`, `stack`, `contracts`.
-
-When the task table (or user request) is explicitly the deliverable authority:
-
-```text
-The route table in this task is authoritative for deliverable count.
-index.js and api.md are verification sources.
-```
-
-This decision lives in the skill defaults + task facts — not left for the prompt author to invent per task.
-
-**Handoff vs repo:** current repository evidence still wins on conflict with handoff for *implementation state*; handoff remains authoritative for Task IDs, SHARED/US citations, and stated Out of scope ([inspection.md](inspection.md)).
 
 ---
 
 ## Artifact contracts
 
-For each deliverable, specify a checkable contract:
-
 ```yaml
 artifacts:
   - id: sequence-diagram
-    count: 11                    # exact integer, or null if BLOCKED
+    count: 11
     path: docs/onboarding/sequences/
     filename_pattern: "{method}-{normalized-path}.html"
     format: standalone-html
-    embedded_assets: true
     external_dependencies: false
     one_to_one_with: active_routes
-    prior_state: absent          # absent | partial | exists
-    validation:
-      - file_count_equals_inventory
-      - each_file_contains_inline_svg
 ```
 
-Rendered form (example):
-
-```text
-Artifact contract:
-- Create exactly 11 files under docs/onboarding/sequences/.
-- Each file must be standalone HTML.
-- Each file must contain an inline SVG.
-- No Mermaid-only output.
-- No external JavaScript, CSS, fonts, or image assets.
-- There must be a one-to-one mapping between ACTIVE_ROUTES and output files.
-```
-
-Rules:
-
-- `count` must be computable from an authoritative inventory, or set `uncertainty: BLOCKED`.
-- Ban unbounded phrasing: `N files or equivalent`, `about N`, `as many as needed`.
-- `external_dependencies: false` means no external JS/CSS/fonts/images unless the contract says otherwise.
+Render tight: exact count, path, format, deps, 1:1 map. `count` computable or BLOCKED.
 
 ---
 
 ## Filename normalization
 
-When artifacts need filenames, define a deterministic function in `naming` — never “sensible filenames” alone.
-
-Default rule set (use unless the repo already has a stronger convention — then Observed convention wins):
+One line when needed:
 
 ```text
-Filename normalization:
-- lowercase
-- HTTP method first (when method applies)
-- replace `/` with `-`
-- replace `:param` with `param` (or `{param}` only if the path pattern requires braces)
-- use `root` for `/`
-- no spaces
-- collapse repeated `-`
-```
-
-Examples:
-
-```text
-GET /                    → get-root.html
-GET /sites/:site_id/links → get-sites-site-id-links.html
-POST /sites/:site_id/requeue → post-sites-site-id-requeue.html
-```
-
-If a shorter pattern is required, state **one** deterministic mapping and examples that match it. Do not give a general pattern **and** conflicting short examples.
-
----
-
-## Evidence policy (schema)
-
-`Tag evidence Observed/Inferred/Unknown` alone is insufficient. Put a concrete policy in the specification:
-
-```yaml
-evidence_policy:
-  labels:
-    - Observed
-    - Inferred
-    - Assumption
-    - Unknown
-  observed_requires:
-    - source_file
-    - source_reference   # symbol, line range, or section when available
-  placement:
-    - every_interaction   # when diagrams / sequence docs
-    - diagram_legend
-  upgrade_forbidden: true   # never promote Inferred/Unknown → Observed
-```
-
-Preferred render tags:
-
-```text
-[Observed: path/to/file]
-[Inferred]
-[Assumption]
-[Unknown]
-```
-
-Rendered rules block (inject when the task produces diagrams, inventories, or behavior claims):
-
-```text
-Evidence rules:
-- Label every interaction as [Observed], [Inferred], [Assumption], or [Unknown].
-- Use [Observed] only when supported directly by code or documentation; cite path.
-- Use [Inferred] for behavior logically implied but not directly shown.
-- Use [Assumption] for unverified premises required to proceed.
-- Use [Unknown] when the repository does not establish the behavior.
-- Add a legend when diagrams are deliverables.
-- Do not upgrade Inferred, Assumption, or Unknown to Observed.
+Naming: lower; method-first; /→-; :param→param; /→root; no spaces
 ```
 
 ---
 
-## Async evidence policy (reusable)
+## Uncertainty
 
-Inject when the task touches queues, workers, jobs, webhooks, or “fire-and-forget” side effects:
-
-```text
-Async evidence policy:
-- HTTP request → enqueue call: Observed if directly present in route/helper code.
-- Queue name and payload: Observed only if defined in source.
-- Worker consumption: Observed only if the consumer and linkage are traceable.
-- Background processing after the request: do not imply temporal ordering unless documented.
-- Completion callback, retry, refresh, or persistence: mark Unknown unless directly evidenced.
-```
-
-Do not imply that enqueue proves worker success.
+| Type | Prompt-only | `--execute` |
+|------|-------------|-------------|
+| `UNKNOWN` | Tag if needed; continue | Continue if non-blocking |
+| `CONFLICT` | One-line if blocks counts | Do not implement affected outputs |
+| `BLOCKED` | State blocker; no fake counts | **Ask** before coding |
 
 ---
 
-## Uncertainty: Unknown vs Conflict vs Blocked
+## Smart lint (Zero-overhead)
 
-| Type | Meaning | May render useful prompt? | May implement affected output? |
-|------|---------|---------------------------|--------------------------------|
-| `UNKNOWN` | Behavior/fact not established after bounded search | Yes — document with `[Unknown]` | Yes, if deliverables remain well-defined |
-| `CONFLICT` | Sources disagree; precedence not yet resolving | Yes — surface conflict + precedence | No for affected outputs until resolved |
-| `BLOCKED` | Essential facts missing/contradictory; correct delivery impossible | Prompt-only: state blocker; `--execute`: stop and ask | No |
+### Always (fix silently; do not print transcript)
 
-```yaml
-uncertainty:
-  - type: UNKNOWN
-    subject: worker completion after enqueue
-  - type: CONFLICT
-    subject: active route count
-    sources: [task table, index.js]
-  - type: BLOCKED
-    subject: deliverable file count
-    reason: authoritative inventory not computable
-```
+MUST uniqueness; AC ↔ artifact counts; computable `count`; no soft MUST words; Unknown≠Blocked; no active/inactive mix; multi-source count needs precedence.
 
-Laws:
+### Prompt-only
 
-- `Unknown` behavior may be documented; it does **not** by itself block documentation tasks.
-- `Conflict` / `Blocked` on count, authority, or format **do** block affected implementation.
-- Never mix inactive inventory items into active deliverable counts.
+- **Do not** show WARN/ERROR lists in the body.
+- Surface **only** CONFLICT/BLOCKED that block deliverable counts/authority.
+- Soft WARNs: fix if cheap or omit.
+
+### `--execute` / `--full`
+
+- Ask user **only** on BLOCKED.
+- Treat format/safety WARNs as must-fix before coding; still no long lint dump.
 
 ---
 
-## Prompt lint (before Render)
+## Tier selection
 
-Run all checks. Fix the specification when possible; otherwise emit WARN/ERROR and follow the table.
+| Tier | Trigger | Shape |
+|------|---------|-------|
+| **minimal** | `--minimal`, or `ultra-low`/`low` without artifact inventory | **4 sections** |
+| **compact** | default / `mid` | 8 sections, pruned |
+| **full** | `--full` only (or user asks complete template) | 20 sections |
 
-| Check | Severity if fail |
-|-------|------------------|
-| Every `MUST` requirement is unique (no duplicate meaning) | ERROR |
-| Acceptance criteria agree with artifact contracts / deliverable counts | ERROR |
-| Every artifact `count` is an exact integer computable from an authoritative inventory | ERROR |
-| Source precedence defined for every multi-source data kind | ERROR |
-| Referenced paths exist **or** are explicitly `Unknown` / proposed-new | WARN / ERROR if claimed Observed |
-| Soft unbounded words on MUST/ACCEPTANCE: `or equivalent`, `sensible`, `as needed`, `appropriate`, `about N` | ERROR |
-| Active and inactive inventory items not mixed into one count | ERROR |
-| Optional / SHOULD / MAY clearly marked (not sounding like MUST) | WARN |
-| Evidence tag syntax and placement defined when claims/diagrams exist | WARN |
-| Async/worker observation criteria defined when async paths exist | WARN |
-| Self-contained / standalone deliverables have dependency contract (`external_dependencies`) | WARN |
-| `Unknown` vs `Blocked` not conflated | ERROR |
-
-Example warnings for a bad draft:
-
-```text
-WARN: "11 files or equivalent" is non-deterministic.
-WARN: Route authority is not explicitly ordered.
-WARN: Evidence tag syntax is undefined.
-WARN: Worker observation criteria are ambiguous.
-WARN: "self-contained HTML/SVG" lacks a dependency contract.
-```
-
-**ERROR** → fix spec or mark `BLOCKED` before render.  
-**WARN** → fix when cheap; otherwise include an explicit Ambiguities / Uncertainty note in the rendered prompt.
+Never auto-`full` for docs-only or single-file bugfix. Honor `--minimal` over auto-escalate.
 
 ---
 
 ## Render mapping
 
-| Spec field | Compact section | Full section |
-|------------|-----------------|--------------|
-| `objective` | 1. Objective | Objective |
-| engineering choices + labeled assumptions | 2. Engineering Decisions | Engineering Decisions + Assumptions |
-| sources, stack, files, precedence | 3. Repository Context | Repository Context |
-| today state | 4. Current Behavior | Current Behavior |
-| target state | 5. Desired Behavior | Desired Behavior |
-| `requirements` (MUST/SHOULD/…) + artifacts | 6. Requirements | Functional + Technical Requirements |
-| `constraints` + out of scope + touch set | 7. Constraints & Out of Scope | Constraints + Out of Scope |
-| `acceptance_criteria` + `validation_checks` + plan | 8. Acceptance, Validation & Plan | AC + DoD + Testing + Plan |
+| Spec | minimal (4) | compact | full |
+|------|-------------|---------|------|
+| objective | 1 Objective | 1 | Objective |
+| decisions + context + evidence | 2 Context/Decisions (1 sentence + paths) | 2 + 3 | Decisions + Context |
+| behavior | 3 Behavior (current→desired) | 4 + 5 | Current + Desired |
+| requirements + artifact + OoS + AC + touch | 4 Requirements (fold tails) | 6–8 | Functional…Plan |
 
-Always start rendered body with:
+Header:
 
 ```text
-Promptize specification version: 2
-Output tier: compact | full
+Promptize specification version: 3
+Output tier: minimal | compact | full
+Cache: REUSE_HIT | ULTRA | FAST | DELTA
 ```
 
-When `--save-to-file`, metadata `schema_version: 2`.
+Omit `Cache:` only if unknown; never invent token-saved counts.
+
+### Minimal density (4 sections)
+
+1. **Objective** — one sentence.
+2. **Context & decisions** — one-sentence decision; stack/paths; evidence map if ≥2 files; precedence if needed.
+3. **Behavior** — current → desired (short combined block).
+4. **Requirements** — MUST first; artifact/naming if any; Touch Set (≤3 lines); OoS 3–4 with `❌` or “Do not:”; AC ≤5; repo validation commands inline if known. No separate Constraints section.
+
+### Compact density
+
+1. Objective — one sentence.
+2. Engineering Decisions — one sentence when possible (≤2 max).
+3. Repository Context — stack one line; files/aliases; precedence if needed.
+4–5. Current / Desired — ≤5 bullets each.
+6. Requirements — MUST block; artifact one paragraph; naming one line.
+7. Constraints & OoS — Touch Set ≤3 lines; OoS 3–4 excludes.
+8. AC + validation (+ plan ≤4 steps). Skip empty subsections. No `N/A` walls.
+
+### Save metadata (ultra-light)
+
+```yaml
+---
+promptize:
+  schema_version: 3
+  skill_version: <frontmatter>
+  generated_at: <timestamp>
+  tier: minimal | compact | full
+  mode: prompt-only | execute
+---
+```
+
+Do **not** put `source_request` or `git_head` in frontmatter — HEAD lives on the Promptize reuse row in SESSION-CACHE.

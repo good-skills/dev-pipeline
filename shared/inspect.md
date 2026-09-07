@@ -9,13 +9,14 @@ Evidence rules (all slices): tag claims **Observed** / **Inferred** / **Unknown*
 1. Open `docs/dev-pipeline/SESSION-CACHE.md` if present ([context-cache.md](context-cache.md)).
 2. Reuse **Carry-over** and skip **Loaded** paths unless file is dirty or task needs a new section.
 3. After `next` / `task`, update cache — do not rely on chat memory alone.
+4. **Promptize:** check **Promptize reuse** table (`norm_key` + HEAD) **before** handoff/delta slices ([context-cache.md](context-cache.md), [../promptize/inspection.md](../promptize/inspection.md)).
 
 ## Skill slices
 
 | Skill | Slices | Notes |
 |-------|--------|-------|
 | `dev-pipeline` | docs, pipeline, cache, git (before writes), manifest+code when `backlog` / `story extract` | Delta `next` when cache fresh |
-| `promptize` | cache, pipeline-handoff, manifest, code, docs, git (`--execute`) | Skip slices covered by handoff + cache |
+| `promptize` | Promptize reuse → ultra/micro gate → cache/handoff → delta manifest/code/docs; git full on `--execute` | **Reuse/ultra hit:** skip inspect + three-stage; **fast path:** skip manifest/code/docs |
 | `review-task` | git, pipeline (task prompt + queue), manifest (validation only) | Resolve TASK_ID before change-set |
 | `commit` | git (minimal) | `status -sb` → stat → scoped diff; `log -3`; reuse session scope |
 

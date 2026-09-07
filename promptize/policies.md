@@ -142,6 +142,10 @@ Async evidence policy:
 
 Enqueue ≠ worker success. Do not upgrade async Inferred/Unknown steps to Observed.
 
+Inject the full async block only when queues/workers apply; prefer one short paragraph in compact/minimal tiers ([specification.md](specification.md)).
+
+Gate note: never take ultra/micro direct-render for async/security-sensitive work that needs fresh code evidence ([inspection.md](inspection.md)).
+
 ## Artifact & naming defaults
 
 Prefer checkable artifact contracts over prose deliverables. When filenames are part of the deliverable and the repo has no Observed naming convention, use the default normalization in [specification.md](specification.md) (method-first, `/` → `-`, `:param` → `param`, `root` for `/`). Never leave MUST deliverables as “sensible filenames” or “N files or equivalent”.
