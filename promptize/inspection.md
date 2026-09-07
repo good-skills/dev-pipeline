@@ -86,13 +86,26 @@ Handoff is authoritative for: Task/Feature/Epic IDs, cited SHARED/US paths, AC s
 
 | Status | Meaning |
 |--------|---------|
-| **Observed** | Direct file/command evidence — cite repo-relative path |
+| **Observed** | Direct file/command evidence — cite repo-relative path (`[Observed: path]`; add symbol/section when known) |
 | **Inferred** | Reasonable conclusion — label required |
 | **Assumption** | Unverified premise needed to proceed — label required |
 | **Unknown** | Not found after bounded search — do not invent |
 
 `Observed ≠ Inferred ≠ Assumption ≠ Unknown`. List **Assumptions** explicitly in generated prompt (§ Engineering Decisions or full § Assumptions).
 
+Full evidence schema, placement, and lint: [specification.md](specification.md). Async paths: [policies.md](policies.md) Async evidence.
+
+### Uncertainty typing (extract → specify)
+
+When inspection finds gaps or clashes, record typed uncertainty — do not collapse everything into “Unknown”:
+
+| Type | When |
+|------|------|
+| `UNKNOWN` | Bounded search found no establishing evidence |
+| `CONFLICT` | Two+ credible sources disagree on the same fact |
+| `BLOCKED` | Deliverable count/authority/format cannot be specified correctly |
+
+Unknown may still yield a useful documentation prompt. Conflict/Blocked on inventories must not become “N or equivalent”.
 ## Relevant files
 
 Every listed file: repo-relative path, role, evidence. Never "the file above" or conversation-only references.

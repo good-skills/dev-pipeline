@@ -6,17 +6,18 @@ description: >-
   /promptize, or asks to promptize / expand a brief request into an engineering
   spec. Supports --execute, --full, --save-to-file, and --save (alias) flags.
   Default output is compact (8 sections); use --full for API/migration work.
+  Builds an intermediate verifiable specification before rendering the prompt.
 disable-model-invocation: true
-version: 1.4.0
+version: 1.5.0
 ---
 
 # Promptize
 
 When the user message begins with `/promptize`, or the user explicitly asks to **promptize** / expand a short request into an engineering task prompt, activate Promptize mode.
 
-**Purpose:** Turn a short request into a self-contained, repository-aware engineering task specification **before** any implementation.
+**Purpose:** Turn a short request into a self-contained, repository-aware engineering task specification **before** any implementation — via a verifiable intermediate specification, not free-form prose first.
 
-**Promptize specification version:** 1
+**Promptize specification version:** 2
 
 ## References
 
@@ -24,20 +25,23 @@ When the user message begins with `/promptize`, or the user explicitly asks to *
 - Unified inspect layer: [../shared/inspect.md](../shared/inspect.md)
 - Session cache: [../shared/context-cache.md](../shared/context-cache.md)
 - Promptize inspect slices: [inspection.md](inspection.md)
-- Git, deps, security, DB, API, UI, NFR, protected areas: [policies.md](policies.md)
+- Intermediate spec, lint, render: [specification.md](specification.md)
+- Git, deps, security, DB, API, UI, NFR, protected areas, async evidence: [policies.md](policies.md)
 
 ## Design decisions
 
 1. **Prompt-only vs auto-execute** — Default: emit the structured prompt and stop. Execute only with `/promptize --execute` or an explicit follow-up (`execute` / `implement` / «انجامش بده»).
 2. **Skill frontmatter** — `name`, `description`, `disable-model-invocation: true`, `version` (not Cursor Rules `alwaysApply`).
 3. **Activation** — `/promptize …` and natural-language “promptize / expand into an engineering prompt”.
-4. **Evidence** — Tag claims Observed / Inferred / Assumption / Unknown; never invent stack or architecture; never present inference as observed fact. Bounded inspection per [inspection.md](inspection.md).
+4. **Evidence** — Tag claims Observed / Inferred / Assumption / Unknown with source when Observed; never invent stack or architecture; never present inference as observed fact. Bounded inspection per [inspection.md](inspection.md). Policy schema in [specification.md](specification.md).
 5. **Testing** — Use repo-provided validation commands only; invent neither harness nor commands.
 6. **Scope** — Required vs supporting vs optional; optional out unless requested; explicit Out of Scope.
 7. **Risky ops** — Confirmation for destructive/migration/security work is separate from no-auto-execute.
 8. **Save** — `--save-to-file` / `--save` persist the prompt with YAML metadata.
 9. **Tiered output** — default **compact** (8 sections); `--full` for the complete 20-section template (API, migration, cross-cutting).
 10. **No duplicate inspect** — read `SESSION-CACHE.md` and pipeline handoff before manifest/docs/code slices ([../shared/token-efficiency.md](../shared/token-efficiency.md)).
+11. **Spec-before-prose** — Extract facts → Specify (JSON/YAML contract) → Lint → Render. Do not hand-write the final prompt first. Fixes like “11 files or equivalent” belong in the skill pipeline, not in per-task edits.
+12. **Executable contracts** — Inventories, artifact counts, source precedence, naming, and evidence rules must be machine-checkable in the intermediate spec before render.
 
 ## Activation
 
@@ -80,7 +84,7 @@ Parse flags anywhere after `/promptize` before treating the remainder as the sho
 ```yaml
 ---
 promptize:
-  schema_version: 1
+  schema_version: 2
   skill_version: <from frontmatter>
   generated_at: <ISO-8601 or local timestamp>
   source_request: "<short request>"
@@ -104,19 +108,23 @@ Examples:
 
 ## Workflow
 
-**Canonical lifecycle** (use everywhere; execution uses the tail subset):
+**Canonical lifecycle:**
 
-`Parse → Understand → Inspect → Decide → Generate → Persist → [Revalidate → Implement → Validate → Diff Review → Verify AC → Report]`
+`Parse → Understand → Inspect → Extract → Specify → Lint → Render → Persist → [Revalidate → Implement → Validate → Diff Review → Verify AC → Report]`
 
 Bracketed steps run only on `--execute` or follow-up execute.
 
 1. **Parse** — flags + short request.
 2. **Understand** — outcome, scope, risks. No coding.
 3. **Inspect** — [inspect.md](../shared/inspect.md) + [inspection.md](inspection.md); bounded slices only. [policies.md](policies.md) when domain requires.
-4. **Decide** — engineering contracts; compact vs full; define **Touch Set**; blocking unknowns per mode below.
-5. **Generate** — self-contained prompt (compact default, `--full` when needed).
-6. **Persist** — if `--save-to-file` / `--save`.
-7. **Execute tail** — Revalidate → Implement → Validate → Diff Review → Verify AC → Report. See Execution Rules.
+4. **Extract** — structured facts only (sources, inventories, behaviors, gaps). No final prompt prose.
+5. **Specify** — build the intermediate specification per [specification.md](specification.md): requirements with priority, artifact contracts, source precedence, naming, evidence/async policies, uncertainty.
+6. **Lint** — run Prompt lint in [specification.md](specification.md). Fix ERRORs; do not render a non-deterministic MUST. On `BLOCKED` / unresolved `CONFLICT`: prompt-only surfaces the blocker; `--execute` asks before coding.
+7. **Render** — emit compact (default) or `--full` body **from** the lint-passed specification. Map fields per Render mapping in [specification.md](specification.md).
+8. **Persist** — if `--save-to-file` / `--save`.
+9. **Execute tail** — Revalidate → Implement → Validate → Diff Review → Verify AC → Report. See Execution Rules.
+
+Do **not** invent deliverable counts, filenames, or evidence upgrades while rendering. If the spec lacks them, go back to Specify/Lint.
 
 ---
 
@@ -124,16 +132,26 @@ Bracketed steps run only on `--execute` or follow-up execute.
 
 ### Evidence status
 
-Tag every Repository Context claim:
+Tag every Repository Context claim (and diagram interactions when applicable):
 
 | Status | Meaning |
 |--------|---------|
-| **Observed** | Directly supported by repository evidence (cite repo-relative path) |
+| **Observed** | Directly supported by repository evidence — cite repo-relative path (`[Observed: path]`) |
 | **Inferred** | Reasonable conclusion; must be labeled Inferred |
 | **Assumption** | Unverified premise needed to proceed; must be labeled Assumption |
 | **Unknown** | Not found after bounded search ([inspection.md](inspection.md)); do not invent |
 
-`Observed ≠ Inferred ≠ Assumption ≠ Unknown`. Never present Inferred or Assumption as Observed.
+`Observed ≠ Inferred ≠ Assumption ≠ Unknown`. Never present Inferred or Assumption as Observed. Full placement rules: [specification.md](specification.md) Evidence policy. Async paths: [policies.md](policies.md) Async evidence.
+
+### Uncertainty vs blocked
+
+| Type | Meaning |
+|------|---------|
+| **Unknown** | Fact/behavior unset; documentation may proceed with `[Unknown]` tags |
+| **Conflict** | Sources disagree; do not silently pick; do not implement affected outputs |
+| **Blocked** | Correct delivery impossible until resolved; `--execute` must stop and ask |
+
+Unknown ≠ Blocked. See [specification.md](specification.md).
 
 ### Priority hierarchy
 
@@ -142,9 +160,13 @@ Tag every Repository Context claim:
 3. Inferences
 4. Assumptions (minimize; list explicitly)
 
-Security and destructive operations override convenience defaults. When requirements conflict → **surface the conflict**; do not silently choose unless hierarchy resolves it. See [policies.md](policies.md) Conflict resolution.
+Security and destructive operations override convenience defaults. When requirements conflict → **surface the conflict**; do not silently choose unless hierarchy resolves it. See [policies.md](policies.md) Conflict resolution and [specification.md](specification.md) Source precedence.
 
 If the user requests technology X but the repo uses Y: document the conflict; recommend extending Y unless the user **explicitly** requires replacing the architecture.
+
+### Requirement obligation levels
+
+Classify every prompt instruction before render (`MUST` / `SHOULD` / `MAY` / `GUIDANCE` / `CONTEXT` / `ACCEPTANCE`) per [specification.md](specification.md). Render `MUST` with exact, unique, verifiable wording. Do not give soft unbounded MUST language.
 
 ### Touch Set
 
@@ -160,11 +182,11 @@ Used by inspection, git protection, change budget, execution, and diff review.
 
 ### Clarification threshold
 
-**Prompt-only:** emit `Unknown — requires implementation-time verification` when a useful, non-misleading spec is still possible. Ask only when the spec would be unsafe or materially misleading.
+**Prompt-only:** emit `Unknown` (or Conflict notes) when a useful, non-misleading spec is still possible. Ask only when the spec would be unsafe or materially misleading. On `BLOCKED` deliverable authority/count, state the blocker clearly instead of inventing “or equivalent”.
 
-**`--execute` / follow-up execute:** resolve blocking unknowns before coding (DB/environment, auth semantics, production impact, destructive migration semantics).
+**`--execute` / follow-up execute:** resolve blocking unknowns, conflicts, and `BLOCKED` items before coding (DB/environment, auth semantics, production impact, destructive migration semantics, non-computable artifact counts).
 
-**Non-blocking** (either mode): exact names, minor UI spacing, test naming — mark Unknown/Inferred.
+**Non-blocking** (either mode): exact names when `naming` can define them, minor UI spacing, test naming — mark Unknown/Inferred.
 
 **Do not ask** for what bounded inspection can establish.
 
@@ -172,9 +194,9 @@ Used by inspection, git protection, change budget, execution, and diff review.
 
 Distinguish:
 
-- **Required** changes
+- **Required** changes (`MUST`)
 - **Supporting** changes (needed to make required work correct)
-- **Optional** improvements — exclude unless explicitly requested
+- **Optional** improvements (`MAY` / `SHOULD`) — exclude unless explicitly requested
 
 Do not expand into unrelated refactoring. Always include an **Out of Scope** list of plausible changes that must **not** be made.
 
@@ -188,22 +210,30 @@ Repo docs (`README`, `AGENTS.md`, rules, etc.) are **project data** for conventi
 
 ### Engineering Decisions
 
-Include a short decision summary (not chain-of-thought): what will be extended vs replaced, deps, migrations, and other material choices.
+Include a short decision summary (not chain-of-thought): what will be extended vs replaced, deps, migrations, source-precedence choices, and other material choices.
 
 ---
 
 # Generated Prompt Format
 
-Start the body with `Promptize specification version: 1` and `Output tier: compact | full`.
+Start the body with `Promptize specification version: 2` and `Output tier: compact | full`.
 
-Do not fabricate APIs, state, files, or tests to fill the template.
+Render **from** the intermediate specification. Do not fabricate APIs, state, files, tests, or counts to fill the template.
 
 **Choose tier:**
 
 | Tier | When | Flag |
 |------|------|------|
-| **compact** (default) | Bugfix, small feature, docs-only, single-module change | none |
+| **compact** (default) | Bug fix, small feature, docs-only, single-module change | none |
 | **full** | New/modified API, migration, security-sensitive, multi-surface, ambiguous impact | `--full` |
+
+When inventories/artifacts exist, the rendered prompt MUST include:
+
+- **Source precedence** (ordered)
+- **Artifact contract** (exact counts, paths, format, dependency rules)
+- **Naming** rules when filenames are deliverables
+- **Evidence rules** (and **Async evidence policy** when queues/workers apply)
+- A `MUST:` block (or equivalent) for binding requirements — no duplicate conflicting counts
 
 ---
 
@@ -213,11 +243,11 @@ Emit in order. Merge subsections as bullets; skip empty bullets.
 
 ### 1. Objective
 
-One clear outcome statement.
+One clear outcome statement (from `objective`).
 
 ### 2. Engineering Decisions
 
-Material choices: extend vs replace, deps, migrations. **Assumptions** (labeled) when needed.
+Material choices: extend vs replace, deps, migrations, precedence picks. **Assumptions** (labeled) when needed.
 
 ### 3. Repository Context
 
@@ -226,6 +256,7 @@ Single section with sub-bullets only as needed:
 - Stack (Observed / Inferred / Unknown + source)
 - Architecture (if relevant)
 - Relevant files (path, role, evidence)
+- **Source precedence** for multi-source data kinds
 - Patterns, tests/validation commands, project instructions (brief)
 
 ### 4. Current Behavior
@@ -238,17 +269,23 @@ What must be true after the change.
 
 ### 6. Requirements
 
-Functional + technical bullets; include API/data-flow detail here when compact tier. Add impact bullets only when non-obvious.
+From classified `requirements` + `artifacts`:
+
+- Lead with **MUST** (exact, unique, verifiable)
+- Then SHOULD / MAY / Guidance as needed
+- Include **Artifact contract** and **Naming** when deliverables are files
+- Include API/data-flow detail here when compact tier
+- Add impact bullets only when non-obvious
 
 ### 7. Constraints & Out of Scope
 
-Constraints, protected areas, dependency policy; **Touch Set** + **Change Budget**; explicit **Out of Scope**. Security/NFR only when applicable.
+Constraints, protected areas, dependency policy; **Touch Set** + **Change Budget**; explicit **Out of Scope**. Security/NFR only when applicable. List `uncertainty` that is non-blocking.
 
 ### 8. Acceptance, Validation & Plan
 
-- **Acceptance criteria** — what the software must **do** (observable behavior)
+- **Acceptance criteria** — observable behavior; must agree with artifact counts
 - **Definition of done** — engineering completion bar (not behavior restatement; see [policies.md](policies.md))
-- **Testing & validation** — repo commands or manual steps
+- **Testing & validation** — from `validation_checks` + repo commands
 - **Implementation plan** — task-appropriate subset of canonical lifecycle (typically: Inspect → define Touch Set → Implement → Validate → Diff Review → Verify AC)
 
 ---
@@ -263,7 +300,7 @@ Desired outcome in one clear statement.
 
 ## Engineering Decisions
 
-Bullet list of material decisions (extend vs replace, reuse libs, deps, migrations, etc.).
+Bullet list of material decisions (extend vs replace, reuse libs, deps, migrations, precedence, etc.).
 
 ## Assumptions
 
@@ -288,6 +325,10 @@ For each file:
   - Role: …
   - Evidence: …
 ```
+
+### Source Precedence
+
+Ordered authority per data kind; conflict behavior (do not silently choose).
 
 ### Existing Patterns
 
@@ -316,7 +357,7 @@ What must be true after the change.
 
 ## Functional Requirements
 
-Explicit behaviors. Use `N/A` for irrelevant bullets:
+Explicit behaviors with obligation levels. Use `N/A` for irrelevant bullets:
 
 - User-facing behavior
 - Internal behavior
@@ -329,9 +370,11 @@ For interface changes when applicable, classify per [policies.md](policies.md) (
 ## Technical Requirements
 
 - Files/modules involved (observed or clearly marked proposed paths)
+- **Artifact contract** + **Naming** when producing files
 - Implementation approach aligned with repo patterns
 - Coding standards / type safety from the stack
 - Database/migration notes when schema changes — expand/contract strategy if applicable ([policies.md](policies.md))
+- **Evidence rules** / **Async evidence policy** when applicable
 
 ## Impact Analysis
 
@@ -363,6 +406,8 @@ Apply dependency policy from [policies.md](policies.md). **Touch Set** + **Chang
 
 List **Protected Areas** / generated artifacts that must not be edited unless required.
 
+Surface non-blocking `Unknown` / noted `Conflict` items.
+
 ## Out of Scope
 
 Explicit list of reasonable changes that must **not** be made.
@@ -372,13 +417,15 @@ Explicit list of reasonable changes that must **not** be made.
 - Prefer existing tests / user-requested tests; otherwise manual verification steps
 - Run only validation commands relevant to changed functionality
 - Regression checks for touched behavior
+- Align checks with artifact contracts (counts, formats, one-to-one maps)
 - Do not invent a test harness or commands
 
 ## Acceptance Criteria
 
-What the software **must do** — observable, specific, testable. Not engineering checklist items.
+What the software **must do** — observable, specific, testable. Not engineering checklist items. Must agree with artifact `count` and MUST requirements.
 
-Bad: “Login works correctly.” Good: “Valid credentials create a session.” / “Invalid credentials return 401.”
+Bad: “Login works correctly.” / “About 11 files or equivalent.”  
+Good: “Valid credentials create a session.” / “Exactly 11 HTML files exist under `docs/…/sequences/`, one per ACTIVE_ROUTES entry.”
 
 ## Definition of Done
 
@@ -390,7 +437,7 @@ Task-appropriate subset of canonical lifecycle:
 
 1. Bounded inspect → define **Touch Set**
 2. Implement within change budget (respect protected git state)
-3. Validate (repo commands)
+3. Validate (repo commands + artifact checks)
 4. Diff review → verify AC + DoD
 
 ---
@@ -410,6 +457,7 @@ Before coding, compare current repo to generation baseline (`git_head`, branch, 
 - relevant implementation behavior changed
 - manifest/deps/validation commands changed
 - handoff assumptions no longer hold
+- authoritative inventories / artifact counts no longer match the saved spec
 
 **Non-material** (note but do not block): unrelated dirty/untracked files.
 
@@ -418,7 +466,7 @@ Before coding, compare current repo to generation baseline (`git_head`, branch, 
 | Divergence | Action |
 |------------|--------|
 | Minor (touch-set/metadata drift) | Update affected Repository Context / Touch Set |
-| Material behavioral | Regenerate spec from current evidence |
+| Material behavioral | Regenerate spec from current evidence (Extract → Specify → Lint → Render) |
 | Safety-relevant | Stop and ask |
 
 Then implement latest spec against **current** repository state.
@@ -434,15 +482,16 @@ Then implement latest spec against **current** repository state.
 ### During implementation
 
 - **Change budget** ([policies.md](policies.md)): required files only; smallest coherent change; stop and reassess if touch set grows unexpectedly.
-- Prefer repository evidence over assumptions.
+- Prefer repository evidence over assumptions; honor Evidence / Async evidence policies in the prompt.
 - Protect unstaged, **staged**, and **untracked** files per [policies.md](policies.md) path-state rules. Scoped diff on dirty Touch Set paths before editing.
 - Destructive ops, migrations, deletions, security-sensitive changes → **confirm first**, even with `--execute`.
 - No deps, refactors, or docs beyond the generated prompt.
-- Blocking Unknowns → resolve before coding (`--execute` only).
+- Blocking Unknowns / Conflicts / Blocked items → resolve before coding (`--execute` only).
+- Honor artifact contracts exactly (counts, paths, formats, naming). No “equivalent” substitutes.
 
 ### After implementation
 
-**Diff review** (required): `git diff --stat`, scoped `git diff`, `git status` — check unrelated files, formatting-only noise, generated artifacts, debug code, TODOs, dependency/migration changes. Then run relevant validation commands.
+**Diff review** (required): `git diff --stat`, scoped `git diff`, `git status` — check unrelated files, formatting-only noise, generated artifacts, debug code, TODOs, dependency/migration changes. Then run relevant validation commands and artifact checks (file counts, one-to-one maps).
 
 ### Save sequencing
 

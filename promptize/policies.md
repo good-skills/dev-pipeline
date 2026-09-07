@@ -113,9 +113,12 @@ Priority: (1) explicit user requirements → (2) repo conventions/evidence → (
 
 When user request, repo convention, and policy conflict → **surface the conflict**; do not silently pick one unless hierarchy explicitly resolves it (e.g. security blocks unsafe user request).
 
+For multi-source **data** (routes, entities, commands, contracts): emit an explicit **source precedence** list in the intermediate specification ([specification.md](specification.md)). If sources disagree and precedence does not resolve the fact needed for a MUST deliverable → record `CONFLICT` or `BLOCKED`; never invent “or equivalent” counts.
+
 ## Definition of Done (detail)
 
 - Behavior matches acceptance criteria
+- Artifact contracts met (exact counts, paths, formats, naming) when specified
 - No unrelated files modified (verified by diff review)
 - APIs/interfaces compatible unless explicitly changed
 - Lint/format pass where configured
@@ -123,3 +126,28 @@ When user request, repo convention, and policy conflict → **surface the confli
 - No unjustified dependencies
 - No task TODOs left
 - User working-tree changes preserved
+
+## Async evidence
+
+When the task involves queues, workers, jobs, webhooks, or deferred side effects, inject this policy into the intermediate specification and the rendered prompt ([specification.md](specification.md)):
+
+```text
+Async evidence policy:
+- HTTP request → enqueue call: Observed if directly present in route/helper code.
+- Queue name and payload: Observed only if defined in source.
+- Worker consumption: Observed only if the consumer and linkage are traceable.
+- Background processing after the request: do not imply temporal ordering unless documented.
+- Completion callback, retry, refresh, or persistence: mark Unknown unless directly evidenced.
+```
+
+Enqueue ≠ worker success. Do not upgrade async Inferred/Unknown steps to Observed.
+
+## Artifact & naming defaults
+
+Prefer checkable artifact contracts over prose deliverables. When filenames are part of the deliverable and the repo has no Observed naming convention, use the default normalization in [specification.md](specification.md) (method-first, `/` → `-`, `:param` → `param`, `root` for `/`). Never leave MUST deliverables as “sensible filenames” or “N files or equivalent”.
+
+## Change budget
+
+- Touch only paths in the Touch Set (plus justified supporting paths).
+- Prefer the smallest coherent change that meets MUST requirements.
+- Stop and reassess if the Touch Set grows unexpectedly during `--execute`.

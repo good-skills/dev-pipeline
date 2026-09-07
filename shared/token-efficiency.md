@@ -36,7 +36,7 @@ Read this when any pipeline skill runs. Details: [context-cache.md](context-cach
 | Skill | Load on activation | Load only when subcommand needs |
 |-------|-------------------|-------------------------------|
 | dev-pipeline | `SKILL.md` | `schema.md`, `adopt.md`, `briefing.md`, `user-stories.md`, etc. — **one** file per branch |
-| promptize | `SKILL.md` | `policies.md` when domain requires; compact tier default |
+| promptize | `SKILL.md` + `specification.md` (Extract→Specify→Lint→Render) | `policies.md` / `inspection.md` when domain requires; compact tier default |
 | review-task | `SKILL.md` | `checklist.md` when scoring |
 | commit | `SKILL.md` only | — |
 
