@@ -12,6 +12,7 @@
 |------|-----------|-----|
 | [`dev-pipeline/`](./dev-pipeline/) | `/dev-pipeline …` | برنامه‌ریزی و رهگیری محصول (فاز، backlog، brief، story، صف تسک) |
 | [`promptize/`](./promptize/) | `/promptize …` | تبدیل درخواست کوتاه به مشخصات مهندسی (اختیاری `--execute`) |
+| [`bug-report/`](./bug-report/) | `/bug-report …` | تبدیل توضیح طبیعی و یادداشت‌های خام به گزارش باگ ساختاریافته |
 | [`commit/`](./commit/) | `/commit` | کامیت محدود به همان تسک |
 | [`review-task/`](./review-task/) | `/review-task …` | PASS / FAIL / PARTIAL در برابر Task Prompt |
 | [`clear-antipatterns/`](./clear-antipatterns/) | `/clear-antipatterns …` | اصلاح محافظه‌کارانه anti-patternهای TS |
