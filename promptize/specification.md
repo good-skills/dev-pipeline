@@ -2,7 +2,7 @@
 
 Do **not** draft final prompt prose first — **unless** reuse hit, ultra-gate, or micro direct-render ([inspection.md](inspection.md)). Otherwise: lean Specify → Lint → Render.
 
-Shared policies: [policies.md](policies.md). Cache reuse: [../shared/context-cache.md](../shared/context-cache.md).
+Shared policies: [policies.md](policies.md). Cache reuse: [../shared/context-cache.md](../shared/context-cache.md). Adaptive compression: [../shared/caveman-token-policy.md](../shared/caveman-token-policy.md).
 
 ## Pipeline
 
@@ -55,6 +55,14 @@ One file → `auth.ts` (or short repo-relative path); skip the map.
 
 Keep: inventories + counts, artifacts, precedence, touch paths, validation commands, CONFLICT/BLOCKED.  
 Drop: narrative stack already in Carry-over, unused policy sections, soft gaps.
+
+### Caveman preservation
+
+Compress repeated prose only. Preserve code, commands, paths, URLs, API names,
+identifiers, versions, exact errors, numbers, units, negation, exception
+clauses, and safety language verbatim. Use common technical acronyms only; do
+not invent abbreviations or terse fragments that create ambiguity. Persisted
+prompts remain clear professional engineering artifacts.
 
 ---
 

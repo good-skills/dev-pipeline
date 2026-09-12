@@ -16,7 +16,7 @@
 | [`commit/`](./commit/) | `/commit` | کامیت محدود به همان تسک |
 | [`review-task/`](./review-task/) | `/review-task …` | PASS / FAIL / PARTIAL در برابر Task Prompt |
 | [`clear-antipatterns/`](./clear-antipatterns/) | `/clear-antipatterns …` | اصلاح محافظه‌کارانه anti-patternهای TS |
-| [`shared/`](./shared/) | — | قوانین مشترک (inspect، token-efficiency، SESSION-CACHE) |
+| [`shared/`](./shared/) | — | قوانین مشترک (inspect، token-efficiency، SESSION-CACHE، Caveman انتخابی) |
 
 ### اصل اصلی
 
@@ -186,3 +186,38 @@ agent-prompts/             # gitignored — پرامپت تحویل به Agent
 > **Plan → Implement → Commit → Review → Rework or Advance**
 
 این چرخه توسعه با چند Agent و چند Session را قابل رهگیری، قابل ادامه و قابل بررسی نگه می‌دارد.
+
+---
+
+## Single-file distribution
+
+برای agentهایی که فقط یک Skill file می‌پذیرند:
+
+| فایل | توضیح |
+|------|-------|
+| `promptize/SKILL.md` | **Canonical source** — multi-file architecture |
+| `dist/single/promptize/SKILL.md` | **Generated** — single-file, self-contained |
+
+### Build commands
+
+```bash
+npm run build:skill:promptize   # build single-file promptize
+npm run build:skills            # alias for above
+npm run build:check             # build + verify no drift
+```
+
+### Drift detection
+
+`build:check` بعد از build، `git diff --exit-code dist/` اجرا می‌کند. اگر generated file قدیمی باشد، CI fail می‌شود.
+
+### Token budget system
+
+Promptize شامل token budget policies است:
+
+- Context budgets (context, skill, retrieval, read, tool output, output, loop)
+- Read budget (file size thresholds)
+- Tool output budget (bounded results)
+- Search budget (scoped excludes)
+- Git budget (bounded inspection)
+- Loop budget (max cycles before escalation)
+- Retry policy (no blind retries)

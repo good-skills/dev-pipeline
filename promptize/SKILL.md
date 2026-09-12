@@ -8,7 +8,7 @@ description: >-
   --save-to-file, and --save. Default compact; auto-minimal for ultra-low tasks.
   File-based Promptize reuse (exact/normalized) in SESSION-CACHE — no Redis.
 disable-model-invocation: true
-version: 2.1.0
+version: 2.2.0
 ---
 
 # Promptize
@@ -23,6 +23,7 @@ When the user message begins with `/promptize`, or the user explicitly asks to *
 ## References
 
 - Token efficiency: [../shared/token-efficiency.md](../shared/token-efficiency.md)
+- Selective Caveman policy: [../shared/caveman-token-policy.md](../shared/caveman-token-policy.md)
 - Session cache + Promptize reuse: [../shared/context-cache.md](../shared/context-cache.md)
 - Unified inspect: [../shared/inspect.md](../shared/inspect.md)
 - Gate order (reuse → ultra → micro → delta): [inspection.md](inspection.md)
@@ -44,6 +45,7 @@ When the user message begins with `/promptize`, or the user explicitly asks to *
 11. **Save** — Ultra-light metadata ([specification.md](specification.md)); upsert reuse row after render.
 12. **Activation** — Still requires `/promptize` or explicit promptize ask — no ambient “help me with this code”.
 13. **Skill frontmatter** — `disable-model-invocation: true`; versioned.
+14. **Adaptive Caveman** — Reuse/direct gates run first; Caveman compresses only internal exploration, handoffs, and response prose when its overhead is justified, never immutable technical spans.
 
 ## Activation
 
@@ -84,9 +86,9 @@ Same normalized follow-up text → **reuse hit**. Rephrased text → miss. Flags
 2. **Understand** — outcome, scope, risks; set `estimated_tokens` (`ultra-low`/`low`/`mid`/`high`). Auto-`minimal` when `ultra-low`/`low` and no artifact inventory (unless `--full`).
 3. **Reuse lookup** — SESSION-CACHE Promptize reuse: `norm_key` + HEAD ([inspection.md](inspection.md)). **Hit** → emit prior body (`Cache: REUSE_HIT`); skip to Persist upsert / Execute revalidation. **Miss** → continue.
 4. **Ultra / Micro** — handoff deepen or micro fix/update → direct-render `minimal` (`Cache: ULTRA`); skip three-stage. Else continue.
-5. **Inspect (delta)** — only if needed; policies only for security/DB/API/UI/async.
-6. **Extract → Specify → Lint** — skip on reuse/ultra/micro. Lean schema ([specification.md](specification.md)). Silent lint (prompt-only).
-7. **Render** — density rules; header includes `Cache: …` when known.
+5. **Inspect (delta)** — only if needed; policies only for security/DB/API/UI/async. For broad localization, apply the compact explorer contract in [../shared/caveman-token-policy.md](../shared/caveman-token-policy.md); skip delegation when a direct path or symbol is known.
+6. **Extract → Specify → Lint** — skip on reuse/ultra/micro. Lean schema ([specification.md](specification.md)). Silent lint (prompt-only). Deduplicate internal context before rendering.
+7. **Render** — density rules; header includes `Cache: …` when known. Apply Caveman prose compression only when it shortens output without changing exact code, commands, paths, errors, identifiers, numbers, negation, or safety language.
 8. **Persist + cache upsert** — save if flagged; always upsert reuse row (cap 5).
 9. **Execute tail** — only on `--execute` / follow-up.
 
@@ -213,3 +215,186 @@ Diff review + validation + artifact checks. Upsert reuse row if prompt regenerat
 ### Save sequencing
 
 Save before implement when save flags set; resolve overwrite first.
+
+---
+
+# Token Budget System
+
+Promptize must be token-aware. Goal: same engineering value, less context, less tool output, less repetition, fewer loops.
+
+## Context budgets
+
+| Budget | Scope | Heuristic |
+|--------|-------|-----------|
+| `CONTEXT_BUDGET` | Total session context | Keep under provider safe limit; prefer bottom third |
+| `SKILL_BUDGET` | Skill file loading | Minimal/compact: load only referenced sections |
+| `RETRIEVAL_BUDGET` | Files read per task | ≤5 targeted reads before justification |
+| `READ_BUDGET` | Lines per file | <300 full; 300–1000 targeted; >1000 strongly targeted |
+| `TOOL_OUTPUT_BUDGET` | Single tool result | ≤200 lines or ≤4KB |
+| `OUTPUT_BUDGET` | Agent response | Compact: artifact + minimal explanation |
+| `LOOP_BUDGET` | Inspect/retry cycles | ≤3 before escalation |
+
+## Context budget policy
+
+Priority order for loading context:
+
+```text
+requested files → relevant symbols → direct dependencies → tests → broader only if needed
+```
+
+Never load entire repository, documentation tree, or history without justification.
+
+## Read budget
+
+| File size | Strategy |
+|-----------|----------|
+| <300 lines | Full read acceptable |
+| 300–1000 lines | Targeted read preferred |
+| >1000 lines | Targeted strongly preferred |
+| generated/vendor/log | Exclude by default unless task targets them |
+
+## Tool output budget
+
+Each tool must return high signal, low noise:
+
+| Tool | Bound |
+|------|-------|
+| search/grep | Top N results, capped |
+| git diff | Relevant files only |
+| git log | --oneline -10, scoped |
+| tests | First meaningful failure + stack |
+| logs | tail/head, not full dump |
+
+## Search budget
+
+Scoped search preferred:
+
+```bash
+rg "foo" src/        # prefer
+rg "foo" .           # only when justified
+```
+
+Default excludes: `node_modules`, `dist`, `build`, `coverage`, `.cache`, `.git`, `vendor`, `generated`, `logs`
+
+Reuse repo ignore rules when present.
+
+## Git budget
+
+Bounded inspection:
+
+```bash
+git diff -- path/to/file           # prefer
+git log -5 --oneline -- path       # prefer
+git diff --stat                    # summary only
+```
+
+Never dump full repo history.
+
+## Test output budget
+
+Extract first failing test, relevant stack, relevant source. Never dump thousand-line output.
+
+## Conversation context
+
+Each stage must distinguish new information from already known. No re-injection of compacted data.
+
+## Context compression
+
+When context grows large:
+
+```text
+raw context → compact structured summary → continue
+```
+
+Summary includes only: Goal, Files, Findings, Constraints, Decisions, Open issues, Validation.
+
+## Reuse cache
+
+Cache hit must cause:
+
+```text
+reuse → skip unnecessary inspect → skip unnecessary retrieval → render directly
+```
+
+Cache hit must not re-load non-essential dependencies.
+
+## Ultra / Micro gate
+
+For simple requests:
+
+```text
+NO full repo inspection
+NO broad retrieval
+NO unnecessary tool calls
+```
+
+Sequence: Parse → Reuse lookup → Ultra/Micro gate → if sufficient: render → otherwise Delta inspect → specify.
+
+## Delta inspection
+
+When cache is incomplete/stale:
+
+```text
+known context + changed context only
+```
+
+Never full re-inspection. Example: HEAD changed → inspect changed relevant files only.
+
+## Prompt tiers
+
+| Tier | Trigger | Token target |
+|------|---------|--------------|
+| minimal | ultra-low/low, `--minimal` | ≤500 tokens |
+| compact | default, mid | ≤1500 tokens |
+| full | `--full` only, complex | ≤3000 tokens |
+
+## Automatic downgrade
+
+When context budget is tight:
+
+```text
+full → compact → minimal
+```
+
+Preserve executable contracts (MUST, AC, artifacts) even when downgrading.
+
+## Never remove critical information
+
+Compression must preserve: MUST, Acceptance Criteria, Touch Set, Out of Scope, Risk, Validation, Constraints, Required artifacts, Dependencies.
+
+Compression reduces verbosity, not contracts.
+
+## Duplicate instruction elimination
+
+One concept → one canonical statement. No repetition across Rules, Validation, Notes, Summary.
+
+## Smart lint additions
+
+Lint must detect: duplicate instructions, unbounded file reads, unbounded searches, large tool outputs, unnecessary dependencies, repeated context, unbounded retries, missing scope, missing validation, missing risk handling.
+
+Lint itself must not produce large output.
+
+## Loop budget
+
+| Budget | Default | On exceed |
+|--------|---------|-----------|
+| `MAX_INSPECT_LOOPS` | 3 | Stop, summarize, ask |
+| `MAX_RETRY_LOOPS` | 2 | Stop, classify, escalate |
+| `MAX_VALIDATION_LOOPS` | 3 | Stop, report failures |
+
+Prompt-only mode: no loops.
+
+## Retry policy
+
+Same input + same tool must not repeat without change. On failure: classify → change strategy → retry only if justified.
+
+## Output budget
+
+Prompt-only: required artifact + minimal explanation.
+Execution report: Changed, Validation, Failures, Remaining.
+
+## Noise protection
+
+Exclude by default: `node_modules/`, `dist/`, `build/`, `coverage/`, `.cache/`, `.git/`, `vendor/`, `tmp/`, `logs/`, `generated/`.
+
+Allow inspection only when task directly targets them.

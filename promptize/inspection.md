@@ -1,6 +1,6 @@
 # Promptize inspection
 
-Run inspection **only after** reuse miss and ultra/micro miss. Shared layer: [../shared/inspect.md](../shared/inspect.md). Token rules: [specification.md](specification.md), [../shared/token-efficiency.md](../shared/token-efficiency.md). Cache reuse: [../shared/context-cache.md](../shared/context-cache.md).
+Run inspection **only after** reuse miss and ultra/micro miss. Shared layer: [../shared/inspect.md](../shared/inspect.md). Token rules: [specification.md](specification.md), [../shared/token-efficiency.md](../shared/token-efficiency.md), [../shared/caveman-token-policy.md](../shared/caveman-token-policy.md). Cache reuse: [../shared/context-cache.md](../shared/context-cache.md).
 
 ## Gate order (after Parse / Understand)
 
@@ -75,6 +75,17 @@ Each slice is **bounded**. Do not run open-ended repo exploration.
 - Touch set would exceed change budget without user approval.
 
 **Reasonable search** for Unknown: task keywords → manifest/docs indexes → direct imports/callers of identified files → stop at depth below. Do **not** full call-graph traversal unless security/auth/data-migration requires it.
+
+### Caveman exploration
+
+Use compact read-only exploration only for cold-start orientation, broad
+cross-file localization, or after a direct search fails. When a suitable cheap
+subagent exists, ask it only for `path:START-END  relevance` evidence lines;
+keep architecture decisions in the main agent. Skip delegation when the user
+already named the file/symbol or when one targeted search is cheaper.
+
+Do not load the full Caveman suite or external hooks/agents. The portable
+contract is [../shared/caveman-token-policy.md](../shared/caveman-token-policy.md).
 
 ## Slice order (delta inspect only)
 

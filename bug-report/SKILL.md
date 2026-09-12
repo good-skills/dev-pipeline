@@ -6,7 +6,7 @@ description: >-
   to turn rough notes, symptoms, errors, or reproduction details into a bug
   report.
 disable-model-invocation: true
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Bug Report
@@ -17,6 +17,10 @@ to convert natural input into a bug report, generate the report and stop.
 **Purpose:** Turn incomplete, conversational problem descriptions into useful
 bug reports without inventing facts or mistaking user claims for verified
 repository evidence.
+
+**Token policy:** Apply [../shared/caveman-token-policy.md](../shared/caveman-token-policy.md)
+to internal extraction and repository localization. The final bug report is a
+persisted human-facing artifact and must use clear normal prose.
 
 ## Activation
 
@@ -53,13 +57,16 @@ and other secrets as `<REDACTED>`.
    and workaround.
 3. **Inspect selectively** — if repository context is available and a narrow
    lookup can confirm names, versions, or relevant paths, inspect only those
-   sources. Do not perform broad diagnosis unless requested.
+   sources. For broad localization, use the compact read-only explorer contract
+   from the token policy when available. Do not perform broad diagnosis unless
+   requested.
 4. **Separate evidence** — label Reported, Observed, Inferred, and Unknown
    claims; never invent reproduction steps or environment values.
 5. **Assess severity** — use the rubric below. If evidence is insufficient,
    write `Needs triage` instead of guessing.
-6. **Render** — use the requested template. Omit empty optional sections in
-   compact output; retain explicit unknowns that affect reproducibility.
+6. **Render** — use the requested template in clear professional prose. Omit
+   empty optional sections in compact output; retain explicit unknowns that
+   affect reproducibility. Do not apply Caveman fragments to the final report.
 7. **Save if requested** — write UTF-8 Markdown to the supplied path, or
    `bug-reports/{slug}-{YYYYMMDD-HHMMSS}.md` when no path is supplied. Ask
    before overwriting an existing file unless overwrite was explicit.
@@ -173,6 +180,7 @@ to make the report look complete.
 
 - Prefer a symptom-and-context title, not “Bug” or the user's entire message.
 - Preserve exact identifiers, versions, commands, and error text.
+- Deduplicate internal notes before rendering; state each report fact once.
 - Write reproduction steps only from provided or observed facts.
 - Keep diagnosis separate from the report unless the user asks for diagnosis.
 - Distinguish a suspected cause from a confirmed root cause.

@@ -1,8 +1,8 @@
 # Token efficiency (pipeline skills)
 
-Rules for **dev-pipeline**, **promptize**, **review-task**, and **commit** so agents maximize work per token and avoid repeating inspect/read work.
+Rules for **dev-pipeline**, **promptize**, **bug-report**, **review-task**, and **commit** so agents maximize work per token and avoid repeating inspect/read work.
 
-Read this when any pipeline skill runs. Details: [context-cache.md](context-cache.md), [inspect.md](inspect.md). Promptize Ultra Lean: [../promptize/specification.md](../promptize/specification.md).
+Read this when any pipeline skill runs. Details: [context-cache.md](context-cache.md), [inspect.md](inspect.md). Promptize Ultra Lean: [../promptize/specification.md](../promptize/specification.md). Selective Caveman policy: [caveman-token-policy.md](caveman-token-policy.md).
 
 ## Golden rules
 
@@ -15,6 +15,8 @@ Read this when any pipeline skill runs. Details: [context-cache.md](context-cach
 7. **Skills are procedures, not content** — do not paste entire reference docs into replies; cite paths and tables.
 8. **Promptize reuse first** — check SESSION-CACHE **Promptize reuse** (`norm_key` + HEAD) before handoff/delta inspect ([context-cache.md](context-cache.md), [../promptize/inspection.md](../promptize/inspection.md)).
 9. **Promptize ultra/micro** — on reuse miss, try ultra-gate / micro direct-render before delta inspect.
+10. **Adaptive Caveman** — load/apply [caveman-token-policy.md](caveman-token-policy.md) only after reuse/direct gates miss or when broad exploration would otherwise pollute main context.
+11. **Artifact boundary** — Caveman may compress internal context and chat summaries; persisted bug reports, docs, commits, and security/migration instructions keep clear normal prose.
 
 ## Orchestration (one pass per stage)
 
@@ -22,6 +24,7 @@ Read this when any pipeline skill runs. Details: [context-cache.md](context-cach
 |-------|-------|------------|------------|
 | Queue handoff | `/dev-pipeline next` | cache → queue row → delta docs | Full docs tree; re-read PRODUCT if cached |
 | Deep spec | `/promptize` | reuse → ultra/micro → delta inspect | Full inspect on reuse/ultra hit; dump raw JSON; print lint transcripts |
+| Bug report | `/bug-report` | user facts → narrow evidence → report | Broad diagnosis; Caveman fragments in final artifact |
 | Implement | implementer | handoff → paths in Required changes | Full SHARED unless contracts change |
 | Commit | `/commit` | stat → scoped diff | Full `git diff`; re-read queue |
 | Review | `/review-task` | task prompt → scoped change-set | Re-emit next prompt (`next` owns that) |
