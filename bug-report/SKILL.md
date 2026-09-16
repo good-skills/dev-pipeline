@@ -30,6 +30,7 @@ persisted human-facing artifact and must use clear normal prose.
 | `/bug-report --minimal <text>` | Generate the minimal template |
 | `/bug-report --full <text>` | Generate the detailed template |
 | `/bug-report --save [path] <text>` | Generate and save the report |
+| `/bug-report --help` / `-h` | Display help message with usage, templates, evidence rubrics, and options |
 | Natural language: “make this a bug report” | Generate a compact report |
 
 If `--minimal` and `--full` are both present, ask which format to use. Saving

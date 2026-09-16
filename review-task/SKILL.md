@@ -27,6 +27,7 @@ When the user message begins with `/review-task`, this skill is attached, or the
 | `/review-task TASK-…` | Force review against that task id |
 | `/review-task --pull` | `git pull --ff-only` first (default: **no** pull) |
 | `/review-task --no-pull` | Explicit skip pull (default behavior) |
+| `/review-task --help` / `-h` | Display help message with usage, flags, workflow, and verdict rubrics |
 | Natural language: “review task”, «ریویو تسک», «بررسی آخرین تغییرات تسک» | Same as `/review-task` |
 
 ### Flag parsing
@@ -35,6 +36,7 @@ When the user message begins with `/review-task`, this skill is attached, or the
 |------|---------|
 | `--pull` | Pull current branch ff-only before reviewing |
 | `--no-pull` | Do not pull (default) |
+| `--help` / `-h` | Display usage, flags, workflow, and verdict rules |
 | `TASK-…` | Explicit task under review |
 
 Do not treat generic code-review asks as this skill unless a pipeline/bolt task prompt handoff is clearly intended.

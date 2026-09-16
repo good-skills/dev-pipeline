@@ -133,6 +133,23 @@ Keep original Acceptance criteria that are still open; mark passed ones as alrea
 6. Resolve and cite related `US-*` per [user-stories.md](user-stories.md); include flow coverage (open vs covered). If user-facing work has no linked story, note the gap in the prompt — do not invent story text.
 7. If `--promptize`: after writing this handoff, run the Promptize companion (prompt-only + `--save-to-file docs/promptize-prompts/{TASK-ID}.md` unless user asked `--execute`); link the saved path in **Optional: deepen with Promptize**. Pipeline handoff remains the ID/story/SHARED anchor.
 
-## Size budget
+## Size budget & Caveman Compression Pass
 
 Prefer prompts that stay scannable: short bullets, paths over pasted code, AC ≤ 7 items. Link epic sections instead of copying entire epics. Full Promptize bodies (when requested) live under `docs/promptize-prompts/` — do not paste the entire Promptize template into `agent-prompts/` by default.
+
+### Caveman Handoff Compression Pass (Default for `agent-prompts/`):
+
+1. **Artifact Boundary Policy:**
+   - Prompts generated under `agent-prompts/TASK-*.md` apply Caveman prose compression by default (or when `--compress`/`--caveman` is passed) to cut 50-70% context tokens for downstream implementer agents.
+   - Human-facing product docs (`PRODUCT.md`, `PHASES.md`, `US-*.md`) preserve clear, natural engineering prose.
+
+2. **Immutable Technical Spans (VERBATIM):**
+   - IDs (`TASK-*`, `FEAT-*`, `EPIC-*`, `PH-*`, `US-*`), flow codes (`US-*-F*`).
+   - File paths, directory structures, URLs, API routes, method names.
+   - Code blocks, commands, versions, and numeric limits.
+   - Acceptance Criteria, `MUST` statements, and safety language.
+
+3. **Prose Compression:**
+   - Strip filler, pleasantries, articles (a/an/the), hedging, and narrative fluff.
+   - Keep short active imperative sentences (e.g. "Run tests before commit", "Follow SHARED index").
+

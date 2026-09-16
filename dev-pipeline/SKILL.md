@@ -9,14 +9,15 @@ description: >-
   epics/features/tasks with stable IDs, phase switching without breaking
   changes, product-wide shared source of truth for contracts across
   surfaces/services (frontend→backend and new services), surface registration,
-  and self-contained task prompt handoffs. Use when the user starts with
+  Caveman prose compression for agent handoffs (--compress/--caveman), and
+  self-contained task prompt handoffs. Use when the user starts with
   /dev-pipeline, asks to init or adopt a product backlog pipeline, brief a
   phase, create or extract user stories, create or switch phases, register a
   new surface/service, refresh shared contracts, emit the next agent task
   prompt, optionally deepen a handoff with Promptize, or track epic/feature
   status across multi-agent development.
 disable-model-invocation: true
-version: 1.8.0
+version: 1.9.0
 ---
 
 # Dev Pipeline
@@ -41,6 +42,7 @@ When the user message begins with `/dev-pipeline`, this skill is attached, or th
 10. **Shared SoT for all surfaces** — phases plus `docs/dev-pipeline/SHARED.md` are the **whole source of truth** for contracts, entities, user stories, and absorbed product rules when adding a backend during/after frontend or any new service; never fork a parallel contract or story spine per surface.
 11. **Promptize is a companion, not the tracker** — `/dev-pipeline` owns product identity, phases, briefs, stories, backlog, and compact `agent-prompts/` handoffs. `/promptize` owns **one-off or deep** repository-aware engineering specs (inspect → structured Promptize body → optional `--execute`). Use Promptize **outside** the queue for ad-hoc work, or **after** `next`/`task` (or with `--promptize`) when a backlog task needs a fuller engineering spec. Never replace `brief` / `story` / `backlog` / `adopt` with Promptize.
 12. **Session cache + delta handoffs** — `docs/dev-pipeline/SESSION-CACHE.md` (gitignored) records paths already read and stable carry-over; consecutive `next` reuses PRODUCT/SHARED summaries and reads **delta only** ([../shared/context-cache.md](../shared/context-cache.md)).
+13. **Artifact Boundary & Cavecrew Integration** — Task handoff prompts (`agent-prompts/`) automatically apply Caveman prose compression (`--compress`/`--caveman`) to minimize context for downstream implementers. Subcommands `adopt` and `story extract` delegate code search to `cavecrew-investigator` when available. Product docs (`PRODUCT.md`, `PHASES.md`, `US-*.md`) strictly preserve natural human prose.
 
 ## Activation
 
@@ -55,12 +57,13 @@ When the user message begins with `/dev-pipeline`, this skill is attached, or th
 | `/dev-pipeline phase new <slug>` | Create a phase; optionally set active; trailing prose → first brief |
 | `/dev-pipeline phase switch <PH-ID>` | Activate another phase without breaking prior work |
 | `/dev-pipeline phase status` | Show active phase + epic/feature summary |
-| `/dev-pipeline next` / `/dev-pipeline task` | Emit next ready task prompt under `agent-prompts/` |
+| `/dev-pipeline next` / `/dev-pipeline task` | Emit next ready task prompt under `agent-prompts/` (Caveman compressed) |
 | `/dev-pipeline task <FEATURE-ID>` | Emit prompt for a specific feature/task |
 | `/dev-pipeline status` | Compact pipeline overview (phases, surfaces, blockers, priorities) |
 | `/dev-pipeline shared` / `/dev-pipeline shared status` | Show product-wide shared SoT (`SHARED.md`) |
 | `/dev-pipeline shared refresh` | Additive rebuild of shared contract index from docs/phases |
 | `/dev-pipeline surface new <slug>` | Register a new surface/service that inherits shared SoT |
+| `/dev-pipeline --help` / `-h` | Display interactive CLI help, subcommands, flags, and token policies |
 | Natural language: “dev pipeline”, «پایپلاین توسعه», «رهگیری فاز», «adopt از روی docs», «درباره این فاز بگو», «brief فاز», «یوزر استوری», «user story», «داستان کاربری», «استخراج استوری», «سرویس جدید», «شروع بک‌اند», «shared source of truth» | Same as matching subcommand intent |
 
 Flags may appear anywhere after `/dev-pipeline`:
@@ -79,7 +82,9 @@ Flags may appear anywhere after `/dev-pipeline`:
 | `--include-partial` | With `story extract`: also harvest `partial` features |
 | `--kind <kind>` | With `surface new`: `frontend` \| `backend` \| `worker` \| `mobile` \| `bff` \| `shared-lib` \| `other` |
 | `--phase-slug <slug>` | With `surface new`: also create a phase for that surface |
+| `--compress` / `--caveman` | Force Caveman prose compression pass on generated handoff prompt |
 | `--promptize` | With `next` / `task`: also deepen via Promptize skill (see below) |
+| `--help` / `-h` | Display usage, subcommands, options, and token budget rules |
 | `--dry-run` | Report planned file writes; do not write |
 
 Do not treat ambient coding as this skill unless `/dev-pipeline` or an explicit pipeline ask is present.

@@ -56,13 +56,18 @@ One file → `auth.ts` (or short repo-relative path); skip the map.
 Keep: inventories + counts, artifacts, precedence, touch paths, validation commands, CONFLICT/BLOCKED.  
 Drop: narrative stack already in Carry-over, unused policy sections, soft gaps.
 
-### Caveman preservation
+### Caveman preservation & Artifact Boundary Policy
 
-Compress repeated prose only. Preserve code, commands, paths, URLs, API names,
-identifiers, versions, exact errors, numbers, units, negation, exception
-clauses, and safety language verbatim. Use common technical acronyms only; do
-not invent abbreviations or terse fragments that create ambiguity. Persisted
-prompts remain clear professional engineering artifacts.
+1. **Artifact Boundary Policy:**
+   - **Agent Handoff Prompts (`agent-prompts/TASK-*.md`):** Automatically apply Caveman prose compression to maximize token efficiency for implementer subagents (target ≤400 tokens for minimal/compact).
+   - **Human-facing Reports & Documents (`docs/promptize-prompts/` or `--full`):** Preserve natural engineering prose unless `--compress` / `--caveman` is explicitly passed.
+
+2. **Immutable Spans (Never Compress):**
+   - Code blocks, inline code, commands, paths, URLs, API names, identifiers, versions, exact error messages, numbers, units, negation (`not`/`never`/`only`), exception clauses, `MUST`/`ACCEPTANCE` obligation markers, and safety language verbatim.
+
+3. **Prose Compression Pass (`--compress` / `--caveman`):**
+   - Strip filler, articles, pleasantries, hedging, connective fluff, and redundant narrative.
+   - Keep active short sentences. Use common acronyms (DB/API/HTTP); do not invent abbreviations.
 
 ---
 

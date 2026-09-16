@@ -5,10 +5,11 @@ description: >-
   task prompts after reuse lookup, ultra/micro gates, and delta inspect.
   Use when the user starts with /promptize, or asks to promptize / expand a
   brief request into an engineering spec. Supports --execute, --full, --minimal,
-  --save-to-file, and --save. Default compact; auto-minimal for ultra-low tasks.
+  --compress, --caveman, --save-to-file, and --save. Default compact; auto-minimal
+  for ultra-low tasks; Caveman prose compression for agent handoffs.
   File-based Promptize reuse (exact/normalized) in SESSION-CACHE — no Redis.
 disable-model-invocation: true
-version: 2.2.0
+version: 2.3.0
 ---
 
 # Promptize
@@ -18,7 +19,7 @@ When the user message begins with `/promptize`, or the user explicitly asks to *
 **Purpose:** Produce a self-contained, repository-aware engineering task prompt **before** implementation — ultra-lean by default — without a heavyweight engineering report.
 
 **Promptize specification version:** 3  
-**Edition:** Ultra Lean (v2.1)
+**Edition:** Ultra Lean (v2.3 — Caveman & Cavecrew Enhanced)
 
 ## References
 
@@ -46,6 +47,7 @@ When the user message begins with `/promptize`, or the user explicitly asks to *
 12. **Activation** — Still requires `/promptize` or explicit promptize ask — no ambient “help me with this code”.
 13. **Skill frontmatter** — `disable-model-invocation: true`; versioned.
 14. **Adaptive Caveman** — Reuse/direct gates run first; Caveman compresses only internal exploration, handoffs, and response prose when its overhead is justified, never immutable technical spans.
+15. **Cavecrew & Artifact Boundary Integration** — Delta inspect delegates code localization to `cavecrew-investigator` to keep main context clean. Handoff prompts saved for subagents (`agent-prompts/`) automatically apply Caveman prose compression (`--compress` / `--caveman`), while human-facing reports preserve natural prose.
 
 ## Activation
 
@@ -55,8 +57,10 @@ When the user message begins with `/promptize`, or the user explicitly asks to *
 | `/promptize --execute …` | Build, then implement (risk rules) |
 | `/promptize --minimal …` | Force minimal (4 sections) |
 | `/promptize --full …` | Force full 20-section template |
+| `/promptize --compress` / `--caveman` | Force Caveman prose compression on rendered prompt body |
 | `/promptize --save-to-file [path] …` | Build, output, save |
 | `/promptize --save …` | Alias of `--save-to-file` |
+| `/promptize --help` / `-h` | Display help message with usage, options, tiers, and token budgets |
 | Natural language promptize / expand | Prompt-only |
 | Follow-up execute / implement / «انجامش بده» | Revalidate, then implement |
 
@@ -69,7 +73,9 @@ Same normalized follow-up text → **reuse hit**. Rephrased text → miss. Flags
 | `--execute` | Implement after prompt |
 | `--minimal` | Minimal tier |
 | `--full` | Full tier |
+| `--compress` / `--caveman` | Compress rendered prompt prose (preserves code, MUST, paths, AC) |
 | `--save-to-file` / `--save` | optional path; else auto-name under `docs/promptize-prompts/` |
+| `--help` / `-h` | Display usage, flags, tiers, and token budget policies |
 
 ### Save rules
 

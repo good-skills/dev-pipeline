@@ -76,16 +76,18 @@ Each slice is **bounded**. Do not run open-ended repo exploration.
 
 **Reasonable search** for Unknown: task keywords → manifest/docs indexes → direct imports/callers of identified files → stop at depth below. Do **not** full call-graph traversal unless security/auth/data-migration requires it.
 
-### Caveman exploration
+### Caveman exploration & subagent delegation
 
-Use compact read-only exploration only for cold-start orientation, broad
-cross-file localization, or after a direct search fails. When a suitable cheap
-subagent exists, ask it only for `path:START-END  relevance` evidence lines;
-keep architecture decisions in the main agent. Skip delegation when the user
-already named the file/symbol or when one targeted search is cheaper.
+Use compact read-only exploration for cold-start orientation, broad
+cross-file localization, or after a direct search fails:
 
-Do not load the full Caveman suite or external hooks/agents. The portable
-contract is [../shared/caveman-token-policy.md](../shared/caveman-token-policy.md).
+- Delegate broad search to **`cavecrew-investigator`** subagent when installed.
+- Require strict evidence format: `path:line — symbol — short note`.
+- `cavecrew-investigator` output is ~700 tokens (vs 2000+ for raw search), keeping main agent context clean.
+- Enforce `RETRIEVAL_BUDGET` (≤5 targeted reads) and `TOOL_OUTPUT_BUDGET` (≤200 lines / 4KB).
+- Skip subagent delegation when the user already named the exact file/symbol or when a single targeted search is cheaper.
+
+Do not load external hooks/agents if unavailable. Portable fallback contract: [../shared/caveman-token-policy.md](../shared/caveman-token-policy.md).
 
 ## Slice order (delta inspect only)
 

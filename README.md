@@ -1,223 +1,203 @@
-# AI Development Pipeline — راهنمای سریع
+# 🚀 AI Development Pipeline & Skill Suite
 
-> بستهٔ اسکیل‌های Cursor برای **رهگیری توسعه با چند Agent**؛ هدف حفظ **Context، منطق کسب‌وکار، وابستگی‌ها، قراردادها و تاریخچه** در طول عمر محصول است — نه جایگزینی کدبیس با پرامپت‌های پراکنده.
+[![Version](https://img.shields.io/badge/version-1.9.0-blue.svg)](https://github.com/good-skills/dev-pipeline)
+[![Skills CLI](https://img.shields.io/badge/skills.sh-compatible-success.svg)](https://skills.sh)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Token-Efficiency](https://img.shields.io/badge/token--budget-Ultra%20Lean-orange.svg)](#-token-budget--caveman-optimization)
 
-**این ریپو:** اسکیل‌های قابل کپی به `.agents/skills/` یا Cursor skills. راهنمای عمیق انسان‌محور: [`dev-pipeline/README.md`](./dev-pipeline/README.md) (برای Agentها، `SKILL.md` مرجع است).
-
----
-
-## اسکیل‌های این بسته
-
-| پوشه | فعال‌سازی | نقش |
-|------|-----------|-----|
-| [`dev-pipeline/`](./dev-pipeline/) | `/dev-pipeline …` | برنامه‌ریزی و رهگیری محصول (فاز، backlog، brief، story، صف تسک) |
-| [`promptize/`](./promptize/) | `/promptize …` | تبدیل درخواست کوتاه به مشخصات مهندسی (اختیاری `--execute`) |
-| [`bug-report/`](./bug-report/) | `/bug-report …` | تبدیل توضیح طبیعی و یادداشت‌های خام به گزارش باگ ساختاریافته |
-| [`commit/`](./commit/) | `/commit` | کامیت محدود به همان تسک |
-| [`review-task/`](./review-task/) | `/review-task …` | PASS / FAIL / PARTIAL در برابر Task Prompt |
-| [`clear-antipatterns/`](./clear-antipatterns/) | `/clear-antipatterns …` | اصلاح محافظه‌کارانه anti-patternهای TS |
-| [`shared/`](./shared/) | — | قوانین مشترک (inspect، token-efficiency، SESSION-CACHE، Caveman انتخابی) |
-
-### اصل اصلی
-
-> **`/dev-pipeline` فقط برنامه‌ریزی و رهگیری می‌کند؛ Agent دیگر پیاده‌سازی می‌کند؛ `/commit` ثبت می‌کند؛ `/review-task` تعیین می‌کند تسک تمام شده یا نیاز به Rework دارد.**  
-> **`/promptize` جایگزین `brief` / `story` / `backlog` / `adopt` نیست** — برای مشخصات عمیق مهندسی است.
+> **Enterprise-Grade AI Agent Orchestration & Tracking Suite**  
+> Maintain business-logic integrity, contract alignment, user-story traceability, and token efficiency across multi-agent AI development sessions.
 
 ---
 
-## نمای کلی چرخه
+## ⚡ Quick Installation
 
-```text
-┌──────────────┐
-│    PLAN      │  /dev-pipeline (init|adopt|brief|story|backlog|phase|next)
-└──────┬───────┘
-       ↓
-┌──────────────┐
-│ TASK PROMPT  │  agent-prompts/TASK-….md  (+ اختیاری /promptize)
-└──────┬───────┘
-       ↓
-┌──────────────┐
-│ IMPLEMENTER  │  Agent دیگر
-└──────┬───────┘
-       ↓
-┌──────────────┐
-│   /commit    │
-└──────┬───────┘
-       ↓
-┌──────────────┐
-│ /review-task │
-└──────┬───────┘
-       ↓
-   PASS → DONE → /dev-pipeline next
-   FAIL → Rework R1 → commit → review …
-```
-
----
-
-## شروع سریع
-
-### پروژهٔ سبز (greenfield)
-
-```text
-/dev-pipeline init <product-name>
-/dev-pipeline backlog
-/dev-pipeline phase new <slug> --set-active
-/dev-pipeline next
-```
-
-### پروژهٔ در حال توسعه (mid-flight)
-
-```text
-/dev-pipeline adopt
-/dev-pipeline story extract          # اختیاری؛ استوری از کار تحویل‌شده
-/dev-pipeline backlog                # در صورت نیاز، با تأیید کاربر
-/dev-pipeline phase new … --set-active
-/dev-pipeline next
-```
-
-### چرخهٔ روزانه (پس از راه‌اندازی)
-
-```text
-/dev-pipeline status
-/dev-pipeline next
-# → پیاده‌سازی با Agent روی agent-prompts/TASK-….md
-/commit
-/review-task TASK-…
-# PASS → /dev-pipeline next   |   FAIL → Rework prompt → commit → review
-```
-
----
-
-## دستورهای مهم `/dev-pipeline`
-
-| دستور | کاربرد |
-|-------|--------|
-| `init [name]` | بوت‌استرپ docs برای محصول جدید |
-| `adopt` | اتصال پایپلاین به docs موجود (بدون پاک‌کردن SoT) |
-| `brief [PH-…] …` | جذب توضیح فاز → قوانین/بک‌لاگ با dedup ادعاها |
-| `story …` / `stories` | یوزر استوری محصول‌محور (`US-*`) + فلوها |
-| `story extract` | استخراج استوری از فیچرهای پیاده‌شده |
-| `backlog` / `plan` | اپیک / فیچر / وابستگی |
-| `phase new` / `switch` / `status` | فازهای قابل پارک بدون شکستن ID |
-| `shared` / `shared refresh` | شاخص قراردادهای مشترک |
-| `surface new <slug>` | ثبت سرویس/سطح جدید روی همان SHARED |
-| `next` / `task <FEATURE-ID>` | پرامپت تسک بعدی / مشخص |
-| `status` | نمای فشرده فاز، صف، بلاکر |
-
-پرچم‌های رایج: `--set-active`، `--phase`، `--promptize` (با `next`/`task`)، `--dry-run`، `--extract-stories`.
-
-جزئیات: [`dev-pipeline/SKILL.md`](./dev-pipeline/SKILL.md).
-
----
-
-## همراهان (companions)
-
-| موقعیت | دستور |
-|--------|--------|
-| تسک صف نیاز به مشخصات عمیق دارد | `/promptize` بعد از `next`، یا `next --promptize` |
-| کار ad-hoc خارج از صف | `/promptize` (اختیاری `--execute`) |
-| پایان پیاده‌سازی | `/commit` |
-| پس از کامیت | `/review-task` / `/review-task TASK-…` |
-
----
-
-## قوانین پایدار (خلاصه)
-
-1. **IDها دائمی‌اند** — rename / renumber / reuse ممنوع؛ `cancelled` / `superseded` بگیرید.
-2. **فاز پارک‌شده را حذف نکنید** — `active ↔ parked`.
-3. **قرارداد مشترک را بدون ثبت نشکنید** — SoT در `docs/dev-pipeline/SHARED.md` محصول هدف.
-4. **Review تعیین‌کننده Done است** — `Implementation ≠ Done`.
-5. **FAIL نباید به تسک بعدی بپرد** — Rework با `…-R1`، سپس review دوباره.
-6. **مسئولیت Agentها جداست** — Pipeline ≠ Implementer ≠ Commit ≠ Review.
-
----
-
-## شناسه‌ها (نمونه)
-
-| نوع | الگو | مثال |
-|-----|------|------|
-| Phase | `PH-{NN}` | `PH-01` |
-| Surface | `SUR-{NN}` | `SUR-01` |
-| Epic | `EPIC-{SUFFIX}` | `EPIC-ASK` |
-| Feature | `{SUFFIX}-{NN}` | `ASK-01` |
-| Task | `TASK-{FEATURE}-{NN}` | `TASK-ASK-01-01` |
-| Rework | `{TASK}-R{N}` | `TASK-ASK-01-01-R1` |
-| User story | `US-{NNN}` / `US-…-F{NN}` | `US-001-F01` |
-
----
-
-## ساختار docs در محصول هدف (طرح پیش‌فرض)
-
-```text
-docs/
-├── PRODUCT.md
-├── ARCHITECTURE.md
-├── ROADMAP.md
-├── epics/
-├── user-stories/          # SHARED — متعلق به یک سرویس نیست
-├── business-rules/        # اختیاری
-└── dev-pipeline/
-    ├── PHASES.md
-    ├── SHARED.md
-    ├── ADOPTION.md        # پس از adopt
-    └── phases/PH-…/
-        ├── README.md
-        ├── CONTEXT.md
-        ├── TASK-QUEUE.md
-        └── briefs/
-
-agent-prompts/             # gitignored — پرامپت تحویل به Agent
-```
-
-اگر پروژه از قبل docs دارد، Pipeline باید **همان را گسترش دهد** و spine موازی نسازد. جزئیات: [`dev-pipeline/schema.md`](./dev-pipeline/schema.md).
-
----
-
-## سه دستور که باید حفظ کنید
-
-```text
-/dev-pipeline next     → پرامپت تسک بعدی
-/commit                → ثبت تغییرات همان تسک
-/review-task TASK-…    → PASS یا Rework
-```
-
-### چرخه اصلی
-
-> **Plan → Implement → Commit → Review → Rework or Advance**
-
-این چرخه توسعه با چند Agent و چند Session را قابل رهگیری، قابل ادامه و قابل بررسی نگه می‌دارد.
-
----
-
-## Single-file distribution
-
-برای agentهایی که فقط یک Skill file می‌پذیرند:
-
-| فایل | توضیح |
-|------|-------|
-| `promptize/SKILL.md` | **Canonical source** — multi-file architecture |
-| `dist/single/promptize/SKILL.md` | **Generated** — single-file, self-contained |
-
-### Build commands
+Install globally or into your workspace using the standard `skills` CLI:
 
 ```bash
-npm run build:skill:promptize   # build single-file promptize
-npm run build:skills            # alias for above
-npm run build:check             # build + verify no drift
+# Install ALL 8 skills globally
+npx skills add good-skills/dev-pipeline -g --all
+
+# Or install all skills in current workspace
+npx skills add good-skills/dev-pipeline --all
+
+# Or install specific skills (e.g., dev-pipeline and promptize)
+npx skills add good-skills/dev-pipeline -s dev-pipeline promptize
 ```
 
-### Drift detection
+---
 
-`build:check` بعد از build، `git diff --exit-code dist/` اجرا می‌کند. اگر generated file قدیمی باشد، CI fail می‌شود.
+## 🛠️ The 8 Skills in this Suite
 
-### Token budget system
+| Skill | Trigger / Command | Description | Version |
+| :--- | :--- | :--- | :--- |
+| 🗂️ **`dev-pipeline`** | `/dev-pipeline …` | Phase-based product development tracking, backlog management, `US-*` story spine, queue & contract indexing (`SHARED.md`). | `v1.9.0` |
+| ⚡ **`promptize`** | `/promptize …` | Transforms short user prompts into self-contained engineering specs before implementation (`--execute`, `--compress`). | `v2.3.0` |
+| 🐛 **`bug-report`** | `/bug-report …` | Converts unstructured error notes and symptoms into evidence-classified bug reports (`--minimal`, `--full`). | `v1.1.0` |
+| 🧹 **`clear-antipatterns`** | `/clear-antipatterns …` | Conservative, type-safe fixes for TypeScript anti-patterns and unsafe assertions. | `v1.0.0` |
+| 🧭 **`codebase-onboarding`** | `/codebase-onboarding …` | Fast, token-efficient repository onboarding guide generator. | `v1.0.0` |
+| 🗺️ **`full-codebase-onboarding`** | `/full-codebase-onboarding …` | Deep visual guidebook generation with AST chunking, Mermaid diagrams, and LiteLLM tutor integration. | `v1.0.0` |
+| 📝 **`commit`** | `/commit` | Task-scoped Conventional Commit generator with strict diff boundaries. | `v1.2.0` |
+| 🔍 **`review-task`** | `/review-task …` | Automated PASS / FAIL / PARTIAL task verification against Task Prompt AC with rework queue management. | `v1.1.0` |
 
-Promptize شامل token budget policies است:
+---
 
-- Context budgets (context, skill, retrieval, read, tool output, output, loop)
-- Read budget (file size thresholds)
-- Tool output budget (bounded results)
-- Search budget (scoped excludes)
-- Git budget (bounded inspection)
-- Loop budget (max cycles before escalation)
-- Retry policy (no blind retries)
+## 🔄 Multi-Agent Lifecycle Diagram
+
+```mermaid
+flowchart TD
+    subgraph "1. Planning & Backlog Management"
+        A["User Request / Prose"] --> B["/dev-pipeline init | adopt | brief | story | backlog"]
+        B --> C["docs/dev-pipeline/ (PHASES, SHARED, Queue)"]
+    end
+
+    subgraph "2. Task Handoff & Specification"
+        C --> D["/dev-pipeline next"]
+        D --> E["agent-prompts/TASK-*.md\n(Caveman Ultra Compressed)"]
+        E -. "Optional Deepen" .-> F["/promptize --save-to-file"]
+    end
+
+    subgraph "3. Execution & Verification"
+        E --> G["Implementer Agent"]
+        G --> H["/commit"]
+        H --> I["/review-task TASK-*"]
+        I -- "PASS" --> J["Mark Queue DONE → /dev-pipeline next"]
+        I -- "FAIL / PARTIAL" --> K["Write Rework TASK-*-R1.md"]
+        K --> G
+    end
+```
+
+---
+
+## 📖 Help System (`--help` Output for Each Skill)
+
+Every skill in this suite features built-in `--help` / `-h` support. Call any command with `--help` to inspect its usage, flags, and token budget rules:
+
+```bash
+/dev-pipeline --help
+/promptize --help
+/bug-report --help
+/commit --help
+/review-task --help
+/codebase-onboarding --help
+/full-codebase-onboarding --help
+/clear-antipatterns --help
+```
+
+---
+
+### 1. 🗂️ Dev Pipeline (`/dev-pipeline`)
+
+```text
+Usage: /dev-pipeline <subcommand> [flags]
+
+Subcommands:
+  init [name]             Bootstrap layout & product identity docs
+  adopt                   Attach pipeline to existing project docs (adopt.md)
+  brief [PH-ID] <prose>   Ingest phase capability descriptions with claim dedup
+  story <prose>           Create/refine product-wide user stories (US-*) in SHARED
+  story extract           Harvest US-* stories from implemented/shipped features
+  backlog / plan          Inspect product and update epic/feature backlog
+  phase new <slug>        Create new phase & optionally set active
+  phase switch <PH-ID>    Switch active phase without breaking IDs
+  phase status            Show active phase and epic/feature counts
+  shared / refresh        Show or rebuild shared contract index (SHARED.md)
+  surface new <slug>      Register a new product surface/service
+  next / task [FEAT-ID]   Emit next ready task prompt under agent-prompts/
+  status                  Compact pipeline status overview
+
+Flags:
+  --set-active            Set newly created phase/surface as active
+  --compress / --caveman  Apply Caveman prose compression pass on task prompt
+  --promptize             Deepen next handoff prompt using Promptize skill
+  --help, -h              Display this help message
+```
+
+---
+
+### 2. ⚡ Promptize (`/promptize`)
+
+```text
+Usage: /promptize [flags] <short request>
+
+Options:
+  --execute               Build prompt and immediately implement (runs risk checks)
+  --minimal               Force minimal 4-section engineering spec (≤500 tokens)
+  --full                  Force detailed 20-section engineering spec (≤3000 tokens)
+  --compress, --caveman   Force Caveman prose compression pass on rendered spec
+  --save-to-file [path]   Save prompt body to file under docs/promptize-prompts/
+  --save                  Alias for --save-to-file
+  --help, -h              Display this help message
+
+Caches & Gates:
+  Reuse lookup (SESSION-CACHE.md) → Ultra-gate → Micro direct-render → Fast path → Delta inspect
+```
+
+---
+
+### 3. 🐛 Bug Report (`/bug-report`)
+
+```text
+Usage: /bug-report [flags] <unstructured problem text / error notes>
+
+Options:
+  --minimal               Generate 4-section concise bug report
+  --full                  Generate detailed report (preconditions, regression, scope)
+  --save [path]           Save bug report artifact under bug-reports/
+  --help, -h              Display this help message
+
+Evidence Classification:
+  Reported (user claim) | Observed (verified log/file) | Inferred (labeled) | Unknown
+```
+
+---
+
+### 4. 📝 Commit (`/commit`)
+
+```text
+Usage: /commit [hint]
+
+Options:
+  --help, -h              Display git safety rules and inspection hierarchy
+
+Inspection Hierarchy (Token Savings):
+  git status -sb → Session reuse → git diff --stat → Scoped git diff -- <paths>
+```
+
+---
+
+### 5. 🔍 Review Task (`/review-task`)
+
+```text
+Usage: /review-task [TASK-ID] [flags]
+
+Options:
+  --pull                  Pull current branch (ff-only) before reviewing
+  --no-pull               Skip git pull (default)
+  --help, -h              Display help message, workflow, and verdict rubrics
+
+Verdicts:
+  PASS     → Update queue row to DONE → prompt user to run /dev-pipeline next
+  FAIL     → Write rework prompt agent-prompts/TASK-*-R1.md
+  PARTIAL  → Write rework prompt for remaining open acceptance criteria
+```
+
+---
+
+## 🧠 Token Budget & Caveman Optimization
+
+This suite incorporates the **Selective Caveman Policy** (`shared/caveman-token-policy.md`) and **Token Budget System**:
+
+1. **Artifact Boundary Policy:**
+   - **Agent Handoff Prompts (`agent-prompts/TASK-*.md`):** Compressed using Caveman Ultra prose pass (50–70% token savings for implementer agents).
+   - **Human-Facing Product Docs (`PRODUCT.md`, `PHASES.md`, `US-*.md`):** Preserved in natural, professional engineering prose.
+2. **Subagent Delegation:**
+   - Code inspection during `adopt` or `story extract` delegates to `cavecrew-investigator` subagents, returning compact `path:line` evidence without flooding the main conversation context.
+3. **Immutable Technical Spans:**
+   - Identifiers (`TASK-*`, `US-*`), code blocks, file paths, CLI commands, `MUST` statements, and Acceptance Criteria remain **100% verbatim**.
+
+---
+
+## 📄 License
+
+MIT License © 2026 Good Skills Team.

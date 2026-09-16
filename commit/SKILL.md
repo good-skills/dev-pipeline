@@ -10,6 +10,7 @@ version: 1.2.0
 # Commit
 
 `/commit`, `/commit <hint>`, or explicit commit ask → run **immediately**. One commit; no push unless the user also asks.
+When called with `/commit --help` or `-h`, display usage, safety rules, inspect order, and message scope guidance.
 
 **Safety:** Follow user git commit rules when present. Also: no git config changes, no skip hooks, no push, no `-i`, exclude secrets (`.env`, keys, credentials).
 
