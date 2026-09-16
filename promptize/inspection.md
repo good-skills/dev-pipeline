@@ -167,3 +167,10 @@ Repo-relative path or alias + map; role; evidence. Never “the file above”.
 ## Git snapshot (execute)
 
 Record baseline at generation; re-validate at execution. Protect unstaged, staged, and untracked (unless this task creates them). See [policies.md](policies.md).
+
+## Lint & Validation Execution
+
+If `--execute` is provided and the agent must verify the generated code (e.g., running tests, linters, or builds):
+1. Do not run naked verbose commands.
+2. You MUST use: `caveman shrink -- <command>` (e.g., `caveman shrink -- pnpm test`).
+3. This ensures token usage remains low while preserving exact error traces for debugging.

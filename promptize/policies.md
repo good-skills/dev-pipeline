@@ -155,3 +155,12 @@ Prefer checkable artifact contracts over prose deliverables. When filenames are 
 - Touch only paths in the Touch Set (plus justified supporting paths).
 - Prefer the smallest coherent change that meets MUST requirements.
 - Stop and reassess if the Touch Set grows unexpectedly during `--execute`.
+
+## Terminal Execution Policy
+
+When executing commands that produce noisy or verbose output (such as running tests, linters, builds, or large `grep` searches), you MUST prepend the command with `caveman shrink --`. 
+
+**Correct:** `caveman shrink -- npm run test`
+**Incorrect:** `npm run test`
+
+This reduces the context token load while ensuring the output remains byte-exact recoverable if needed.

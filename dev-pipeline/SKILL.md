@@ -132,6 +132,8 @@ If both legacy and `docs/dev-pipeline/` exist, treat **legacy epic IDs as author
 
 ## Safety
 
+**Noisy Command Execution:** Whenever executing tests, builds, static analysis, or broad searches (which generate large stdout logs) during inspection or tasks, you MUST wrap the command using `caveman shrink -- <command>`. Do not run naked verbose commands.
+
 - Never overwrite unrelated user edits; if a target file is dirty with unrelated changes, surface overlap before editing.
 - Never delete epic/feature history; use status `cancelled` / `superseded`.
 - Never invent stack, APIs, or architecture — tag Observed / Inferred / Unknown (same evidence rules as Promptize).
