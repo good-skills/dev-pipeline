@@ -173,3 +173,8 @@ All confirmed → `fixed`/`accepted`/`blocked` with evidence; validation + re-sc
 ## Out of Scope
 
 Non-TS/TSX, unrelated features, new tools, ESLint config (unless asked), mechanical `any→unknown`, splitting coherent large modules by line count alone.
+
+## Version
+
+When `--version` or `-v` is detected as the only meaningful flag, emit the skill version (from the frontmatter) verbatim and stop. Do not inspect, reason, or generate.
+

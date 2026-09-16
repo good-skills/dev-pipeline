@@ -175,3 +175,8 @@ After finishing, present the user with:
 2. Confirmation of which major modules/packages were fully documented
 3. How to open the AI tutor and set their LiteLLM token
 4. Steps to keep the knowledge base fresh
+
+## Version
+
+When `--version` or `-v` is detected as the only meaningful flag, emit the skill version (from the frontmatter) verbatim and stop. Do not inspect, reason, or generate.
+

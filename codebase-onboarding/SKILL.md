@@ -1,6 +1,7 @@
 ---
 name: codebase-onboarding
 description: Analyze an unfamiliar codebase and generate a structured onboarding guide with architecture map, key entry points, conventions, and a starter CLAUDE.md. Use when joining a new project or setting up Claude Code for the first time in a repo.
+version: 1.0.0
 metadata:
   origin: ECC
 ---
@@ -232,3 +233,8 @@ Generate or update a project-specific CLAUDE.md based on detected conventions. I
 **User**: "Update the CLAUDE.md with current project conventions"
 **Action**: Read existing CLAUDE.md, run Phases 1-3, merge new findings
 **Output**: Updated `CLAUDE.md` with additions clearly marked
+
+## Version
+
+When `--version` or `-v` is detected as the only meaningful flag, emit the skill version (from the frontmatter) verbatim and stop. Do not inspect, reason, or generate.
+

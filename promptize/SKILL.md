@@ -404,3 +404,8 @@ Execution report: Changed, Validation, Failures, Remaining.
 Exclude by default: `node_modules/`, `dist/`, `build/`, `coverage/`, `.cache/`, `.git/`, `vendor/`, `tmp/`, `logs/`, `generated/`.
 
 Allow inspection only when task directly targets them.
+
+## Version
+
+When `--version` or `-v` is detected as the only meaningful flag, emit the skill version (from the frontmatter) verbatim and stop. Do not inspect, reason, or generate.
+

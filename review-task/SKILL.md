@@ -154,3 +154,8 @@ Do not implement the next task unless the user also asked to implement. This ski
 - Treating unrelated dirty local edits as the task deliverable
 - Advancing `blocked` tasks
 - Replacing `/review-bolt-changes` when the user explicitly wants the bolt pull-centric flow
+
+## Version
+
+When `--version` or `-v` is detected as the only meaningful flag, emit the skill version (from the frontmatter) verbatim and stop. Do not inspect, reason, or generate.
+

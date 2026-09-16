@@ -201,3 +201,8 @@ The report has an actionable title; expected and actual behavior are distinct;
 known reproduction and environment details are preserved; evidence status is
 honest; material unknowns are visible; sensitive data is redacted; and no
 external side effect occurred unless separately authorized.
+
+## Version
+
+When `--version` or `-v` is detected as the only meaningful flag, emit the skill version (from the frontmatter) verbatim and stop. Do not inspect, reason, or generate.
+

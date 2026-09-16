@@ -303,3 +303,8 @@ Check `SESSION-CACHE.md` first. Load **only** delta paths — stop when the task
 - Using `story` to delete or renumber stories/flows, or to mark a story `implemented` while flows remain open
 - Forking surface-local user-story trees or treating stories as owned by one service
 - Forking a second API/DTO/entity spine for a new surface instead of extending `SHARED.md`
+
+## Version
+
+When `--version` or `-v` is detected as the only meaningful flag, emit the skill version (from the frontmatter) verbatim and stop. Do not inspect, reason, or generate.
+

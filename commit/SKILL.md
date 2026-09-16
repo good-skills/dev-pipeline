@@ -56,3 +56,8 @@ Report: hash + subject, ahead of remote?, task id if used, remaining dirty paths
 Hook failed → fix, **new** commit (user amend rules). Secrets → unstage, warn, commit safe subset or stop.
 
 **Out of scope:** PR, push, rebase/merge.
+
+## Version
+
+When `--version` or `-v` is detected as the only meaningful flag, emit the skill version (from the frontmatter) verbatim and stop. Do not inspect, reason, or generate.
+
