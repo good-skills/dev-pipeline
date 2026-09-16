@@ -310,3 +310,11 @@ Check `SESSION-CACHE.md` first. Load **only** delta paths — stop when the task
 
 When `--version` or `-v` is detected as the only meaningful flag, emit the skill version (from the frontmatter) verbatim and stop. Do not inspect, reason, or generate.
 
+
+## Caveman Integrations (Token Optimization)
+
+When interacting with the repository or external sources, use the following Caveman commands to drastically reduce token usage:
+
+1. **`caveman browse <url>`**: Whenever the user provides an external URL during `brief` or `story` gathering (e.g., API docs), do NOT fetch it raw. You MUST run `caveman browse <url>` to read a compressed, token-efficient view of the page.
+2. **`caveman explore install`**: During `adopt` or heavy code inspections on large repositories, if you need broad searches, run `caveman explore install`. Delegate searches to this FastContext subagent to receive precise `path:line` results instead of flooding your main context with file contents.
+3. **`caveman stats`**: When finishing a large pipeline operation (like full `backlog` generation or extensive `adopt`), you may run `caveman stats` and append a one-line token savings estimate to the final output to keep the user informed.
