@@ -63,6 +63,33 @@ Never replace mechanically. Do not change when it alters assignability, inferenc
 | **8a** not secret | `process.env.API_KEY` | not hard-coded secret |
 | **8b** secret | literal credential in source | candidate → `<REDACTED>`; never print value |
 
+## Manual-only smell candidates
+
+Smells mapped in [refactoring.md](refactoring.md) as manual-only (**S2, S4, S5, S6, S8, S10** — same policy as Patterns 2/5) get **no automatic scan**. When contextual inspection or a user request brings them in scope, discover candidates with these greps on `$FILES`. Discovery only — never a change justification.
+
+```bash
+# S2 Duplicated code — similar assignment/comparison blocks; near-dupes only, manual review
+echo "$FILES" | xargs -r grep -nE 'if \(.*\) return .+;?$' | awk -F: '{print $3}' | sort | uniq -c | sort -rn | awk '$1>1'
+
+# S4 Long parameter list — 4+ comma-separated params in a signature
+echo "$FILES" | xargs -r grep -nE '\(([^()]*,[^()]*){3,}\)'
+
+# S5 Feature envy — per-file density of foreign-identifier member access;
+# isolate the owning function during inspection
+echo "$FILES" | xargs -r grep -HnE '\b(user|order|config|data)\.[a-zA-Z_]+' | cut -d: -f1 | uniq -c | awk '$1>5'
+
+# S6 Primitive obsession — stringly-typed domain comparisons (membership/status/kind as raw strings)
+echo "$FILES" | xargs -r grep -nE '=== "(gold|silver|bronze|active|pending)"'
+
+# S8 Nested conditionals — 3+ consecutive if-open braces at growing indent
+echo "$FILES" | xargs -r grep -HnE '^\s{8,}if \([^)]*\) \{$' | cut -d: -f1 | uniq -c | awk '$1>2'
+
+# S10 Inappropriate intimacy — 3+ level property chains
+echo "$FILES" | xargs -r grep -nE '\.[a-zA-Z_]+\.[a-zA-Z_]+\.[a-zA-Z_]+' | grep -v '\.test\.|\.d\.ts'
+```
+
+Candidate output is **approximate**: expect false positives (harness fixtures, domain keyword collisions, intentional chains). Every candidate still passes the full lifecycle — inspect → confirm/reject → risk → benefit.
+
 ## Grep candidates (on `$FILES` only)
 
 ```bash

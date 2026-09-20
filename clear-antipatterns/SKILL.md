@@ -1,15 +1,16 @@
 ---
 name: clear-antipatterns
 description: >-
-  Production-grade conservative TS anti-pattern remediation.
+  Production-grade conservative TS anti-pattern remediation with a refactoring
+  playbook (smell→fix catalog, safe process, operations table).
   /clear-antipatterns [scope] [pattern]. Candidates require contextual confirmation.
 disable-model-invocation: true
-version: 2.2.2
+version: 2.3.0
 ---
 
 # Clear Anti-Patterns
 
-`/clear-antipatterns` → activate. Detection: [detection.md](detection.md) (**load at Scan**). Tokens: [../shared/token-efficiency.md](../shared/token-efficiency.md).
+`/clear-antipatterns` → activate. Detection: [detection.md](detection.md) (**load at Scan**). Remediation playbook: [refactoring.md](refactoring.md) (**load at Plan/Execute**). Tokens: [../shared/token-efficiency.md](../shared/token-efficiency.md).
 
 **Principle:** Regex/grep/awk/find/hashes are **discovery only** — they MUST NOT alone justify a code change. Optimize for **justified, minimal, behavior-preserving** improvements. Modify code only when anti-pattern is **confirmed** and remediation has clear engineering benefit.
 
@@ -84,13 +85,21 @@ When uncertain → **choose higher**.
 
 Low-benefit confirmed → `accepted` (duplication, clarity, correctness, maintainability, conventions, risk reduction — not agent avoidance).
 
+## Remediation playbook
+
+Refactoring techniques for confirmed findings: [refactoring.md](refactoring.md) (**load at Plan/Execute**) — golden rules, smell→fix catalog, compact before/after, safe process, operations table.
+
+**Mapping:** Patterns 1, 3, 4, 7, 9 have canonical fixes there. Additional smells — **S2 duplicated blocks, S4 long parameter list, S5 feature envy, S6 primitive obsession, S8 nested conditionals, S10 inappropriate intimacy** — are **manual-only** (no auto-scan): surface only during contextual inspection or on user request, same policy as #2/#5.
+
+Playbook refactors obey SKILL.md constraints: behavior preservation, minimal touch set, change budget, tests protection, no new dependencies. Structural pattern introductions (strategy, validator chains) and TSX extractions → risk per Risk table (usually medium+).
+
 ## Workflow
 
 1. **Resolve** — scope, pattern, tsconfig, package boundaries.
 2. **Scan** — canonical file list from detection.md → **candidates only** (#2, #5: no auto-scan).
 3. **Classify** — dedupe; assign pattern (no risk).
 4. **Inspect** — confirm/reject; assign risk; judge benefit (may read beyond touch set).
-5. **Plan** — minimal modification touch set; remediation file if threshold met.
+5. **Plan** — minimal modification touch set; technique per [refactoring.md](refactoring.md); remediation file if threshold met.
 6. **Protect** — **pre-execution working tree baseline** (before any edit).
 7. **Execute** — per risk policy.
 8. **Verify** — narrowest repo-defined validation.
